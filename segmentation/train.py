@@ -40,9 +40,9 @@ def train_moving_mnist_segmentation(train_dir, lr=1e-3, height=64, width=64, max
 
     if just_demo:
         checkpoint = torch.load(ckpt)
-        unet.cuda()
-        unet.load_state_dict(checkpoint['state_dict'])
-        unet.demo_video()
+        model.cuda()
+        model.load_state_dict(checkpoint['state_dict'])
+        model.demo_video()
     else:
         trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
         trainer.fit(model)

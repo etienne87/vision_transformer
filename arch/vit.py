@@ -48,5 +48,12 @@ class ViT(nn.Module):
         return y
 
 
+class ViT3D(ViT):
+    def __init__(self, in_channels, out_channels, patch_dim=[16,16,4], num_layers=2, num_heads=32, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+        super().__init__()
+
+ 
+
+
 
 

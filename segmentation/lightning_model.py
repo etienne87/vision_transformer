@@ -8,41 +8,23 @@ import pytorch_lightning as pl
 import torchvision
 
 import os
-import sys
-import glob
+import argparse
 import cv2
 import numpy as np
+from types import SimpleNamespace
 
 from moving_mnist.moving_mnist_segmentation import make_moving_mnist
-from pytorch_stream_loader.utils import grab_images_and_videos, normalize
-
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import TestTubeLogger
 
 from torchvision.utils import make_grid
 
 from kornia.utils import one_hot, mean_iou
 from kornia.losses import DiceLoss, dice_loss
 
+from segmentation.utils import normalize, filter_outliers
+from core.temporal import time_to_batch
+
 import skvideo.io
 
-
-def normalize(im):
-    low, high = im.min(), im.max()
-    return (im - low) / (1e-5 + high - low)
-    
-def filter_outliers(input_val, num_std=3):
-    val_range = num_std * input_val.std()
-    img_min = input_val.mean() - val_range
-    img_max = input_val.mean() + val_range
-    normed = input_val.clamp_(img_min, img_max)
-    return normed    
-
-def search_latest_checkpoint(log_dir):
-    """looks for latest checkpoint in latest sub-directory"""
-    vdir = os.path.join(log_dir, 'checkpoints')
-    ckpt = sorted(glob.glob(vdir + '/*.ckpt'))[-1]
-    return ckpt
 
 
 class SegLoss(nn.Module):
@@ -55,40 +37,29 @@ class SegLoss(nn.Module):
         return self.xe(out,y) + self.dice(out,y)
 
         
-class SegmentationLightningModel(pl.LightningModule) :
+class SegmentationModel(pl.LightningModule) :
   
-    def __init__(self, hparams):     
+    def __init__(self, model, hparams: argparse):     
         super().__init__()
 
         self.model = model
-
+        self.hparams = hparams
         self.criterion = SegLoss()
-        self.save_hyperparameters('batch_size', 'max_workers', 'tbins', 'max_frames_per_video', 'height', 'width', 'parallel', 'train_dir', 'val_dir', 'K', 'max_frames_per_epoch', 'max_objects')
 
     def _inference(self, batch, batch_nb):
         x, y, reset_mask = batch["histos"], batch["labels"], batch["reset"] # x : T,B,2,H,W // y : T,B,H,W
-        
-        T,B,C,H,W = x.shape
-        x = x.float() # int -> float
-
-        out = self.model.forward(x) # T,B,13,H,W
-        
-        out = out.reshape(T*B,self.hparams.K,H,W)
-        y = y.reshape(T*B,H,W).long()
+        out = self.model.forward(x) 
+        out = time_to_batch(out)[0]
+        y = time_to_batch(y)[0].long()
         return out, y
 
     def training_step(self,batch,batch_nb) :
-        self.train()
         out, y = self._inference(batch,batch_nb)
         loss = self.criterion(out, y)
         self.log('train_loss', loss)
         return {'loss': loss}
         
     def training_epoch_end(self,training_step_outputs) :
-        loss = torch.mean(torch.tensor([elt['loss'] for elt in training_step_outputs]))
-        logs = {'train_loss' : loss}
-        self.log('train_loss', loss)
-
         dataloader = self.val_dataloader()
         self.vizu(dataloader, self.current_epoch)
         return
@@ -96,25 +67,19 @@ class SegmentationLightningModel(pl.LightningModule) :
     def validation_step(self, batch, batch_nb):
         out, y = self._inference(batch,batch_nb) # T*B,K,H,W / T*B,H,W
         loss = self.criterion(out, y)
-        acc = self.pixels_acc(out,y)
-        #acc = self.iou_acc(out,y) # T*B,K
-        acc = torch.mean(acc,axis=0) # K // acc for every class
         self.log('val_loss', loss)
-        self.log('acc', acc)
-        return {'acc':acc, 'val_loss': loss.item()} 
+        return {'val_loss': loss.item()} 
 
     def validation_epoch_end(self, validation_step_outputs) :
         avg_loss = torch.mean(torch.tensor([elt['val_loss'] for elt in validation_step_outputs]))
-        avg_acc = torch.mean(torch.tensor([elt['acc'] for elt in validation_step_outputs]))
-        self.log('val_acc', avg_acc)
         self.log('avg_val_loss', avg_loss)
 
     def train_dataloader(self) :
-        train_dataloader, _ = make_moving_mnist(train=True,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.max_frames_per_epoch)
+        train_dataloader, _ = make_moving_mnist(train=True,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.max_frames_per_epoch)
         return train_dataloader   
         
     def val_dataloader(self) :
-        dataloader, _ = make_moving_mnist(train=False,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=10000)
+        dataloader, _ = make_moving_mnist(train=False,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=10000)
         return dataloader 
         
     def configure_optimizers(self):
@@ -123,16 +88,7 @@ class SegmentationLightningModel(pl.LightningModule) :
     def iou_acc(self,out,y) :
         y = y.long().cpu()
         out = torch.argmax(out,dim=1).long().cpu() # T*B,H,W
-        return mean_iou(out,y,num_classes=self.hparams.K).cuda() # T*B,K
-
-    def pixels_acc(self,out,y) :
-        # out : T*B,13,H,W
-        # y : T*B,H,W
-        out = torch.argmax(out,dim=1) # T*B,H,W
-        N,H,W = out.shape
-        #return torch.sum(out==y).float()/(N*H*W)
-        mask = (out==y)[y!=0]
-        return torch.sum(mask).float()/torch.numel(mask)
+        return mean_iou(out,y,num_classes=self.hparams.num_classes).cuda() # T*B,K
 
     def demo_video(self):
         dataloader = self.val_dataloader()
@@ -155,6 +111,7 @@ class SegmentationLightningModel(pl.LightningModule) :
         dirname = os.path.dirname(out_name)
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
+
         out_video = skvideo.io.FFmpegWriter(out_name, outputdict={
         '-vcodec': 'libx264',  #use the h.264 codec 'libx264'
         #'-crf': '0',           #set the constant rate factor to 0, which is lossless
@@ -212,35 +169,3 @@ class SegmentationLightningModel(pl.LightningModule) :
             out_video.close()
     
     
-def train_moving_mnist_segmentation(train_dir, height=128, width=128, max_epochs=100, num_tbins=10, batch_size=64, num_workers=1, max_frames_per_video=100,
-                                    max_frames_per_epoch=10000, max_objects=1, resume=False, just_demo=False):
-
-    model = SequenceWise(SegVit2D(3,11))
-
-    unet = LightningSegmentationModel()
-
-    if resume:
-        ckpt = search_latest_checkpoint(train_dir)
-    else:
-        ckpt = None
-    
-    tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, period=2)
-
-    logger = TestTubeLogger(
-        save_dir=os.path.join(train_dir, 'logs'),
-        version=1)
-
-    if just_demo:
-        checkpoint = torch.load(ckpt)
-        unet.cuda()
-        unet.load_state_dict(checkpoint['state_dict'])
-        unet.demo_video()
-    else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1,precision=32,resume_from_checkpoint=ckpt)
-        trainer.fit(unet)
-  
-  
-if __name__ == "__main__" :
-    import fire
-    fire.Fire(train_moving_mnist_segmentation)

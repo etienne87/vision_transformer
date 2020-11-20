@@ -27,7 +27,7 @@ def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max
     grid_label = np.zeros_like(grid)
 
     for i, data in enumerate(dataloader):
-        batch, targets = data['histos'], data['labels']
+        batch, targets = data['inputs'], data['labels']
         height, width = batch.shape[-2], batch.shape[-1]
         runtime = time.time() - start
         for t in range(len(batch)):

@@ -141,24 +141,7 @@ def collate_fn(data_list):
     frame_is_labelled = torch.ones((t, n), dtype=torch.float32)
     return {'inputs': batch, 'labels': masks, "frame_is_labelled": frame_is_labelled,
             'mask_keep_memory': resets, "video_infos": video_infos}
-    # ATTENTION, RESET PE L'INVERSE (S'APPELAIT MASK KEEP MEMORY)
             
-def collate_fn_bis(data_list):
-    """collate_fn
-    this collates batch parts to a single dictionary
-    Args:
-        data_list: batch parts
-    """
-    batch, masks, resets, video_infos = zip(*data_list) 
-    batch = torch.cat([item[:, None] for item in batch], dim=1)
-    batch = batch.permute(0,1,4,2,3).contiguous()
-    t, n = batch.shape[:2]
-    masks = torch.cat([item[:, None] for item in masks], dim=1)
-    resets = torch.FloatTensor(resets)[:,None,None,None]
-    frame_is_labelled = torch.ones((t, n), dtype=torch.float32)
-    return {'histos': batch, 'labels': masks, "frame_is_labelled": frame_is_labelled,
-            'reset': resets, "video_infos": video_infos}
-
 
 class MovingMNISTSegDataset(MultiStreamDataLoader):
     """Multi-MNIST Animations Parallel Streamer
@@ -207,7 +190,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     parallel = num_workers > 0
 
     datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, max_objects=max_objects)
-    dataset = MovingMNISTSegDataset(datasets, collate_fn_bis, parallel=parallel)
+    dataset = MovingMNISTSegDataset(datasets, collate_fn, parallel=parallel)
 
     return dataset, ['background']+[str(i) for i in range(10)]
 

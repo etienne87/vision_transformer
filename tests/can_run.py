@@ -4,6 +4,14 @@ from core.transformer import *
 from arch.vit import * 
 
 
+def learned_positional_encoding():
+    b,n,c = 3,50,32
+    x = torch.randn(b,n,c)
+    pe = LearnedPositionalEncoding(100, c)
+    y = pe(x)
+    print(y.shape)
+
+
 def transformer():
     b,n,c = 3,50,32
     x = torch.randn(b,n,c)

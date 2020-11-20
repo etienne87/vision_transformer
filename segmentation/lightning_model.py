@@ -83,7 +83,10 @@ class SegmentationModel(pl.LightningModule) :
         return dataloader 
         
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        opt = torch.optim.Adam(self.net.parameters(), lr=self.hparams.lr)
+        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
+        return [opt], [sch]
+        # return torch.optim.Adam(self.parameters(), lr=1e-3)
        
     def iou_acc(self,out,y) :
         y = y.long().cpu()

@@ -2,6 +2,7 @@ import torch
 
 from core.transformer import *
 from arch.vit import * 
+from arch.vit3d import *
 
 
 def learned_positional_encoding():
@@ -24,6 +25,14 @@ def vit():
     b,c,h,w = 10,3,64,64
     x = torch.randn(b,c,h,w)
     net = ViT(c,6)
+    y = net(x)
+    print(y.shape)
+
+
+def vit3d():
+    t,b,c,h,w = 16,10,3,64,64
+    x = torch.randn(t,b,c,h,w)
+    net = ViT3d(c,6)
     y = net(x)
     print(y.shape)
 

@@ -2,6 +2,7 @@ import torch
 
 from core.transformer import *
 from core.xformer import *
+from core.att_rnn import *
 from arch.vit import * 
 from arch.vit3d import *
 
@@ -54,6 +55,13 @@ def vit3d():
     y = net(x)
     print(y.shape)
 
+
+def att_rnn():
+    t,b,c,h,w = 16,10,3,16,16
+    x = torch.randn(t,b,c,h,w)
+    net = ImagesAttentionRNN(c, 16, 8)
+    y = net(x)
+    print(y.shape)
 
 
 if __name__ == '__main__':

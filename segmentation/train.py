@@ -10,10 +10,11 @@ from segmentation.lightning_model import SegmentationModel
 from segmentation.utils import search_latest_checkpoint
 from core.temporal import SequenceWise
 from arch.vit import ViT
+from arch.vit3d import ViT3d
 
 
 
-def train_moving_mnist_segmentation(train_dir, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=10, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=10,
+def train_moving_mnist_segmentation(train_dir, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=12, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=10,
     demo_every=2,                                
     max_frames_per_epoch=10000, max_objects=1, precision=32, resume=False, just_demo=False):
     """
@@ -23,7 +24,8 @@ def train_moving_mnist_segmentation(train_dir, lr=1e-3, height=64, width=64, max
     """
 
     params = argparse.Namespace(**locals())
-    net = SequenceWise(ViT(3,11, num_layers=3))
+    #net = SequenceWise(ViT(3,11, num_layers=3))
+    net = ViT3d(3, 11, num_layers=3)
     model = SegmentationModel(net, params)
 
     if resume:

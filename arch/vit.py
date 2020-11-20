@@ -7,7 +7,6 @@ import torch.nn.functional as F
 
 from core.transformer import Transformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
-from core.xformer import RecursiveTransformer, RecursiveHopfield
 from einops import rearrange
 
 
@@ -27,9 +26,7 @@ class ViT(nn.Module):
 
         self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
 
-        #self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
-        #self.transformer = RecursiveTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
-        self.transformer = RecursiveHopfield(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         self.flatten_dim_out = patch_dim * patch_dim * out_channels
         self.linear_decoding = nn.Linear(embedding_dim, self.flatten_dim_out)

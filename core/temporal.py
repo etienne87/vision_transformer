@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 
 def time_to_batch(x):

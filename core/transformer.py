@@ -32,6 +32,7 @@ class FeedForward(nn.Module):
         )
     def forward(self, x):
         return self.net(x)
+    
 
 class Attention(nn.Module):
     def __init__(self, dim, heads = 8, dropout = 0.):

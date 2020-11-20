@@ -23,7 +23,7 @@ def train_moving_mnist_segmentation(train_dir, lr=1e-3, height=64, width=64, max
     """
 
     params = argparse.Namespace(**locals())
-    net = SequenceWise(ViT(3,11))
+    net = SequenceWise(ViT(3,11, num_layers=3))
     model = SegmentationModel(net, params)
 
     if resume:

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 from core.transformer import Transformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from core.xformer import RecursiveTransformer, RecursiveHopfield
 from einops import rearrange
 
 
@@ -26,7 +27,9 @@ class ViT(nn.Module):
 
         self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
 
-        self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        #self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        #self.transformer = RecursiveTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.transformer = RecursiveHopfield(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         self.flatten_dim_out = patch_dim * patch_dim * out_channels
         self.linear_decoding = nn.Linear(embedding_dim, self.flatten_dim_out)
@@ -37,6 +40,7 @@ class ViT(nn.Module):
         x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
 
         x = self.linear_encoding(x)
+
         x = self.position_encoding(x)
 
         x = self.transformer(x)
@@ -46,14 +50,5 @@ class ViT(nn.Module):
         l2 =  w // self.patch_dim
         y = rearrange(x, 'b (l1 l2) (p1 p2 d) -> b d (l1 p1) (l2 p2)', l1=l1, l2=l2, p1=self.patch_dim, p2=self.patch_dim)
         return y
-
-
-class ViT3D(ViT):
-    def __init__(self, in_channels, out_channels, patch_dim=[16,16,4], num_layers=2, num_heads=32, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
-        super().__init__()
-
- 
-
-
 
 

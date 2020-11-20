@@ -47,7 +47,7 @@ class SegmentationModel(pl.LightningModule) :
         self.criterion = SegLoss()
 
     def _inference(self, batch, batch_nb):
-        x, y, reset_mask = batch["histos"], batch["labels"], batch["reset"] # x : T,B,2,H,W // y : T,B,H,W
+        x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] 
         out = self.model.forward(x) 
         out = time_to_batch(out)[0]
         y = time_to_batch(y)[0].long()
@@ -121,7 +121,7 @@ class SegmentationModel(pl.LightningModule) :
         
         with torch.no_grad() :
             for batch_idx, batch in enumerate(dataloader) :
-                x, y, reset_mask = batch["histos"], batch["labels"], batch["reset"] # x.shape : T,B,2,H,W // y.shape : T,B,H,W
+                x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] # x.shape : T,B,2,H,W // y.shape : T,B,H,W
                 T,B,C,H,W = x.shape
                 x = x.float() # int -> float
                 

@@ -13,8 +13,9 @@ from arch.vit import ViT
 
 
 
-def train_moving_mnist_segmentation(train_dir, height=128, width=128, max_epochs=100, num_tbins=10, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=10,
-                                    max_frames_per_epoch=10000, max_objects=1, resume=False, just_demo=False):
+def train_moving_mnist_segmentation(train_dir, height=64, width=64, max_epochs=100, num_tbins=10, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=10,
+    demo_every=2,                                
+    max_frames_per_epoch=10000, max_objects=1, precision=32, resume=False, just_demo=False):
     """
     Example: 
 
@@ -31,7 +32,7 @@ def train_moving_mnist_segmentation(train_dir, height=128, width=128, max_epochs
         ckpt = None
     
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, period=2)
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, save_top_k=-1, period=1) 
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),
@@ -43,7 +44,7 @@ def train_moving_mnist_segmentation(train_dir, height=128, width=128, max_epochs
         unet.load_state_dict(checkpoint['state_dict'])
         unet.demo_video()
     else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1,precision=32,resume_from_checkpoint=ckpt)
+        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
         trainer.fit(model)
 
   

@@ -60,12 +60,12 @@ class SegmentationModel(pl.LightningModule) :
         return {'loss': loss}
         
     def training_epoch_end(self,training_step_outputs) :
-        dataloader = self.val_dataloader()
-        self.vizu(dataloader, self.current_epoch)
-        return
+        if self.current_epoch and self.current_epoch%self.hparams.demo_every == 0:
+            dataloader = self.val_dataloader()
+            self.vizu(dataloader, self.current_epoch)
             
     def validation_step(self, batch, batch_nb):
-        out, y = self._inference(batch,batch_nb) # T*B,K,H,W / T*B,H,W
+        out, y = self._inference(batch,batch_nb) 
         loss = self.criterion(out, y)
         self.log('val_loss', loss)
         return {'val_loss': loss.item()} 

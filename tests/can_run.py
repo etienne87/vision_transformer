@@ -4,6 +4,7 @@ from core.transformer import *
 from core.xformer import *
 from core.att_rnn import *
 from core.axial_attention import *
+from core.axial_positional_embedding import *
 from arch.vit import * 
 from arch.vit3d import *
 
@@ -70,6 +71,30 @@ def axial_attention():
     x = torch.randn(b,c,h,w,z)
     net = AxialAttention(c, num_dimensions=3, dim_index=1)
     y = net(x) 
+    print(y.shape)
+
+
+def axial_positional_embedding():
+    b,c,h,w,z = 5,8,28,29,30 
+    x = torch.randn(b,c,h,w,z)
+    net = AxialPositionalEmbeddingVolume(c, (28,29,30))
+    y = net(x) 
+    print(y.shape)
+
+
+def axial_transformer():
+    b,c,h,w,z = 5,8,28,29,30 
+    x = torch.randn(b,h,w,z,c)
+    net = AxialTransformer(3, c, 1, 2, 64, 0)
+    y = net(x)
+    print(y.shape)
+
+
+def axial_vit3d():
+    t,b,c,h,w = 12,4,3,64,64
+    x = torch.randn(t,b,c,h,w)
+    net = AxialViT3d(3, 11)
+    y = net(x)
     print(y.shape)
 
 

@@ -12,6 +12,7 @@ from segmentation.mnist_data_module import SegMNISTDataModule
 from core.temporal import SequenceWise
 from arch.vit import ViT
 from arch.vit3d import ViT3d
+from arch.axial_vit3d import AxialViT3d
 
 
 
@@ -26,7 +27,8 @@ def train_mnist(train_dir, lr=1e-3, height=64, width=64, max_epochs=100, num_tbi
 
     params = argparse.Namespace(**locals())
     # net = SequenceWise(ViT(3,11, num_layers=3))
-    net = ViT3d(3, 11, num_layers=3)
+    # net = ViT3d(3, 11, num_layers=3)
+    net = AxialViT3d(3, 11, num_layers=3)
 
     model = SegmentationModel(net, params)
     dm = SegMNISTDataModule(params)

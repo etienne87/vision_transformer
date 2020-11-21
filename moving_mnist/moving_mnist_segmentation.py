@@ -14,10 +14,9 @@ import time
 import cv2
 import torch
 import numpy as np
-import random
+import uuid 
 
 from moving_mnist import moving_box as toy
-from moving_mnist.scheduler import FileMetadata
 from moving_mnist.multistream_dataloader import MultiStreamDataLoader, MultiStreamDataset
 
 from torchvision import datasets, transforms
@@ -60,7 +59,7 @@ class MovingMnist(toy.Animation):
         self.tbins = tbins
         self.max_frames_per_video = max_frames_per_video
         max_classes = 10
-        self.video_info = FileMetadata("", 50000 * max_frames_per_video, 50000, tbins)
+        self.video_info = str(uuid.uuid4()) 
         self.label_img = np.zeros((height, width), dtype=np.uint8)
         super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, max_objects)
 
@@ -116,7 +115,7 @@ class MovingMnist(toy.Animation):
             imgs = np.concatenate(imgs, axis=0)
             masks = np.concatenate(targets, axis=0)
 
-            video_info = (self.video_info, self.steps * self.video_info.delta_t, self.tbins * self.video_info.delta_t)
+            video_info = (self.video_info, self.steps)
             yield imgs, masks, reset, video_info
 
 

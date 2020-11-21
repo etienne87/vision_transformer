@@ -4,8 +4,6 @@ of our streamer dataloader.
 
 It is the same as "moving_mnist_detection", but
 this times sends a mask.
-
-Copyright: (c) 2020 Prophesee
 """
 from __future__ import absolute_import
 

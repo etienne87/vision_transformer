@@ -39,7 +39,7 @@ class SegLoss(nn.Module):
         
 class SegmentationModel(pl.LightningModule) :
   
-    def __init__(self, model, hparams: argparse):     
+    def __init__(self, model, hparams: argparse.Namespace):     
         super().__init__()
 
         self.model = model
@@ -74,19 +74,10 @@ class SegmentationModel(pl.LightningModule) :
         avg_loss = torch.mean(torch.tensor([elt['val_loss'] for elt in validation_step_outputs]))
         self.log('avg_val_loss', avg_loss)
 
-    def train_dataloader(self) :
-        train_dataloader, _ = make_moving_mnist(train=True,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.max_frames_per_epoch)
-        return train_dataloader   
-        
-    def val_dataloader(self) :
-        dataloader, _ = make_moving_mnist(train=False,max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=10000)
-        return dataloader 
-        
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return [opt], [sch]
-        # return torch.optim.Adam(self.parameters(), lr=1e-3)
        
     def iou_acc(self,out,y) :
         y = y.long().cpu()
@@ -115,28 +106,20 @@ class SegmentationModel(pl.LightningModule) :
         if not os.path.isdir(dirname):
             os.mkdir(dirname)
 
-        out_video = skvideo.io.FFmpegWriter(out_name, outputdict={
-        '-vcodec': 'libx264',  #use the h.264 codec 'libx264'
-        #'-crf': '0',           #set the constant rate factor to 0, which is lossless
-        '-preset':'slow'   #the slower the better compression, in princple, try 
-                     #other options see https://trac.ffmpeg.org/wiki/Encode/H.264
-        }) 
+        out_video = skvideo.io.FFmpegWriter(out_name, outputdict={'-vcodec': 'libx264', '-preset':'slow'}) 
         
         with torch.no_grad() :
             for batch_idx, batch in enumerate(dataloader) :
                 x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] # x.shape : T,B,2,H,W // y.shape : T,B,H,W
-                T,B,C,H,W = x.shape
-                x = x.float() # int -> float
                 
-                x = x.cuda()
+                x = x.to(self.device)
                 reset_mask = reset_mask.cuda()
                 if hasattr(self.model , 'reset'):
                     self.model.reset(reset_mask)
                 
-                out = self.model.forward(x) # T,B,13,H,W
-
-                out = torch.argmax(out,dim=2) # T,B,H,W
-                out = out[:,:,None] # T,B,1,H,W
+                out = self.model.forward(x) 
+                out = torch.argmax(out,dim=2) 
+                out = out[:,:,None]
                 
                 x = 255*x
                 

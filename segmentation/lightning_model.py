@@ -59,11 +59,6 @@ class SegmentationModel(pl.LightningModule) :
         self.log('train_loss', loss)
         return {'loss': loss}
         
-    def training_epoch_end(self,training_step_outputs) :
-        if self.current_epoch and self.current_epoch%self.hparams.demo_every == 0:
-            dataloader = self.val_dataloader()
-            self.vizu(dataloader, self.current_epoch)
-            
     def validation_step(self, batch, batch_nb):
         out, y = self._inference(batch,batch_nb) 
         loss = self.criterion(out, y)
@@ -79,17 +74,7 @@ class SegmentationModel(pl.LightningModule) :
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return [opt], [sch]
        
-    def iou_acc(self,out,y) :
-        y = y.long().cpu()
-        out = torch.argmax(out,dim=1).long().cpu() # T*B,H,W
-        return mean_iou(out,y,num_classes=self.hparams.num_classes).cuda() # T*B,K
-
-    def demo_video(self):
-        dataloader = self.val_dataloader()
-        self.vizu(dataloader, -1)
-        return
-
-    def vizu(self,dataloader,epoch) :
+    def demo_video(self, dataloader, epoch=-1) :
         self.eval()
         
         cv2.namedWindow("histos",cv2.WINDOW_NORMAL)
@@ -110,7 +95,7 @@ class SegmentationModel(pl.LightningModule) :
         
         with torch.no_grad() :
             for batch_idx, batch in enumerate(dataloader) :
-                x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] # x.shape : T,B,2,H,W // y.shape : T,B,H,W
+                x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"]
                 
                 x = x.to(self.device)
                 reset_mask = reset_mask.cuda()

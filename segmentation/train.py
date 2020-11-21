@@ -47,7 +47,7 @@ def train_mnist(train_dir, lr=1e-3, height=64, width=64, max_epochs=100, num_tbi
         checkpoint = torch.load(ckpt)
         model.cuda()
         model.load_state_dict(checkpoint['state_dict'])
-        model.demo_video()
+        model.demo_video(dm.val_dataloader())
     else:
         trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
         trainer.fit(model, dm)

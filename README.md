@@ -1,2 +1,4 @@
 # tracking_transformer
-explore transformer for tracking
+Explore transformer for tracking and segmentation
+(no convolutions were harmed during the making of this repo)
+

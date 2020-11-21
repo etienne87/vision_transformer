@@ -11,9 +11,6 @@ from segmentation.utils import search_latest_checkpoint
 from segmentation.mnist_data_module import SegMNISTDataModule
 from core.temporal import SequenceWise
 import arch
-from arch.vit import ViT
-from arch.vit3d import ViT3d
-from arch.axial_vit3d import AxialViT3d
 
 
 def get_model(model_name, num_layers=3):

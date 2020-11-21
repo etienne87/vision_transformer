@@ -25,8 +25,8 @@ def train_mnist(train_dir, lr=1e-3, height=64, width=64, max_epochs=100, num_tbi
     """
 
     params = argparse.Namespace(**locals())
-    net = SequenceWise(ViT(3,11, num_layers=3))
-    # net = ViT3d(3, 11, num_layers=3)
+    # net = SequenceWise(ViT(3,11, num_layers=3))
+    net = ViT3d(3, 11, num_layers=3)
 
     model = SegmentationModel(net, params)
     dm = SegMNISTDataModule(params)

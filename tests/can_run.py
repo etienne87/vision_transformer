@@ -3,6 +3,7 @@ import torch
 from core.transformer import *
 from core.xformer import *
 from core.att_rnn import *
+from core.axial_attention import *
 from arch.vit import * 
 from arch.vit3d import *
 
@@ -62,6 +63,15 @@ def att_rnn():
     net = ImagesAttentionRNN(c, 16, 8)
     y = net(x)
     print(y.shape)
+
+
+def axial_attention():
+    b,c,h,w,z = 5,8,28,29,30 
+    x = torch.randn(b,c,h,w,z)
+    net = AxialAttention(c, num_dimensions=3, dim_index=1)
+    y = net(x) 
+    print(y.shape)
+
 
 
 if __name__ == '__main__':

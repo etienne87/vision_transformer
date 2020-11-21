@@ -33,7 +33,7 @@ def train_mnist(train_dir, model_name, lr=1e-3, height=64, width=64, max_epochs=
     model = SegmentationModel(net, params)
     dm = SegMNISTDataModule(params)
 
-    if resume:
+    if resume or just_demo:
         ckpt = search_latest_checkpoint(train_dir)
     else:
         ckpt = None

@@ -48,6 +48,8 @@ class SegmentationModel(pl.LightningModule) :
 
     def _inference(self, batch, batch_nb):
         x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] 
+        if hasattr(self.model, "reset"):
+            self.model.reset(reset_mask)
         out = self.model.forward(x) 
         out = time_to_batch(out)[0]
         y = time_to_batch(y)[0].long()

@@ -1,12 +1,7 @@
 import torch
 
-from core.transformer import *
-from core.xformer import *
-from core.att_rnn import *
-from core.axial_attention import *
-from core.axial_positional_embedding import *
-from arch.vit import * 
-from arch.vit3d import *
+from core import *
+from arch import * 
 
 
 def learned_positional_encoding():
@@ -98,6 +93,13 @@ def axial_vit3d():
     print(y.shape)
 
 
+def unet_rnn():
+    t,b,c,h,w = 17,3,16,32,32
+    x = torch.randn(t,b,c,h,w)
+    net = UnetRNN(c, 32)
+    net.reset()
+    y = net(x)
+    print(y.shape)
 
 if __name__ == '__main__':
     import fire

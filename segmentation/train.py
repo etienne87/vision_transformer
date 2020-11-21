@@ -24,7 +24,7 @@ def train_mnist(train_dir, model_name, lr=1e-3, height=64, width=64, max_epochs=
     """
     Example: 
 
-    >> python3 segmentation/train.py test_drive --max_frames_per_video 16 --max_frames_per_epoch 50000 --height 64 --width 64
+    >> python3 segmentation/train.py test_drive arch_model_name --max_frames_per_video 16 --max_frames_per_epoch 50000 --height 64 --width 64
     """
 
     params = argparse.Namespace(**locals())

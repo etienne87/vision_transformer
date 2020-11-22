@@ -113,7 +113,7 @@ class MovingSquare(object):
         max_stop: randomly pause for this many steps
         max_classes: maximum number of classes
     """
-    def __init__(self, h=300, w=300, max_stop=15, max_classes=3):
+    def __init__(self, h=300, w=300, max_stop=15, max_classes=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.2):
         self.height, self.width = h, w
         self.aspect_ratio = 1.0
         self.minheight, self.minwidth = 30, 30
@@ -121,6 +121,9 @@ class MovingSquare(object):
         self.max_stop = max_stop
         self.class_id = np.random.randint(max_classes)
         self.iter = 0
+        self.max_speed_t = max_speed_t
+        self.min_speed_s = min_speed_s 
+        self.max_speed_s = max_speed_s 
 
         self.x1 = 0 #left
         self.y1 = 0 #top
@@ -149,11 +152,10 @@ class MovingSquare(object):
     def reset_speed(self):
         """Resets Speed Variables
         """
-        max_v = 10
         
-        self.vx = np.random.randint(1, max_v) * (np.random.randint(0, 2) * 2 - 1)
-        self.vy = np.random.randint(1, max_v) * (np.random.randint(0, 2) * 2 - 1)
-        self.vs = np.random.uniform(0.02, 0.05)
+        self.vx = np.random.randint(1, self.max_speed_t) * (np.random.randint(0, 2) * 2 - 1)
+        self.vy = np.random.randint(1, self.max_speed_t) * (np.random.randint(0, 2) * 2 - 1)
+        self.vs = np.random.uniform(self.min_speed_s, self.max_speed_s)
         
         if np.random.randint(0, 2) == 0:
             self.vs = 1 + self.vs
@@ -168,22 +170,22 @@ class MovingSquare(object):
                                   self.width, self.height, self.minwidth, self.minheight)
 
             if TOOSMALL in flags:
-                self.vs = 1 + np.random.uniform(0.02, 0.05)
+                self.vs = 1 + np.random.uniform(self.min_speed_s, self.max_speed_s)
 
             if TOOBIG in flags:
-                self.vs = 1 - np.random.uniform(0.02, 0.05)
+                self.vs = 1 - np.random.uniform(self.min_speed_s, self.max_speed_s)
 
             if LEFT in flags:
-                self.vx = np.random.randint(1, 7)
+                self.vx = np.random.randint(1, self.max_speed_t)
 
             if RIGHT in flags:
-                self.vx = -np.random.randint(1, 7)
+                self.vx = -np.random.randint(1, self.max_speed_t)
 
             if BOTTOM in flags:
-                self.vy = -np.random.randint(1, 7)
+                self.vy = -np.random.randint(1, self.max_speed_t)
 
             if TOP in flags:
-                self.vy = np.random.randint(1, 7)
+                self.vy = np.random.randint(1, self.max_speed_t)
 
             self.x1, self.y1, self.x2, self.y2 = box
         else:
@@ -227,7 +229,7 @@ class Animation(object):
         max_objects: maximum number of objects
     """
 
-    def __init__(self, height, width, channels, max_stop=15, max_classes=1, max_objects=3):
+    def __init__(self, height, width, channels, max_stop=15, max_classes=1, max_objects=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.2):
         self.height, self.width, self.channels = height, width, channels
         self.max_stop = max_stop
         self.max_classes = max_classes
@@ -238,7 +240,7 @@ class Animation(object):
         self.t = 0
         self.img = None
         for i in range(self.num_objects):
-            self.objects += [MovingSquare(self.height, self.width, max_stop, max_classes=max_classes)]
+            self.objects += [MovingSquare(self.height, self.width, max_stop, max_classes=max_classes, max_speed_t=max_speed_t, min_speed_s=min_speed_s, max_speed_s=max_speed_s)]
         self.reset()
         next(self)
         self.prev_boxes = None

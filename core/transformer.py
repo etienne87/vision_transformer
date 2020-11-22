@@ -2,7 +2,30 @@ import math
 import torch
 import torch.nn as nn
 from einops import rearrange
-import torch.nn.functional as F
+import torch.nn.functional as f
+
+
+def normalize(t, eps=1e-8):
+    """
+    Normalized Attention Without Probability Cage
+    Oliver Richter, Roger Wattenhofer
+
+    https://arxiv.org/abs/2005.09561
+    """
+    t -= t.mean(dim=-1, keepdim=True)
+    s = (t ** 2).mean(dim=-1, keepdim=True)
+    return t * torch.rsqrt(s + eps)
+
+
+class PostNorm(nn.Module):
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.fn = fn
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, x, **kwargs):
+        x = self.fn(x, **kwargs)
+        return self.norm(x)
 
 
 class Residual(nn.Module):
@@ -12,6 +35,7 @@ class Residual(nn.Module):
     def forward(self, x, **kwargs):
         return self.fn(x, **kwargs) + x
 
+
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
@@ -19,6 +43,19 @@ class PreNorm(nn.Module):
         self.fn = fn
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
+
+
+class PreBatchNorm(nn.Module):
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.norm = nn.BatchNorm1d(dim)
+        self.fn = fn
+    def forward(self, x, **kwargs):
+        x = rearrange(x, 'b l d -> b d l')
+        x = self.norm(x)
+        x = rearrange(x, 'b d l -> b l d')
+        return self.fn(x, **kwargs)
+
 
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
@@ -35,7 +72,7 @@ class FeedForward(nn.Module):
     
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 8, dropout = 0.):
+    def __init__(self, dim, heads = 8, dropout = 0., normalize_fn=lambda x:torch.nn.functional.softmax(x, dim=-1)):
         super().__init__()
         self.heads = heads
         self.scale = dim ** -0.5
@@ -45,6 +82,7 @@ class Attention(nn.Module):
             nn.Linear(dim, dim),
             nn.Dropout(dropout)
         )
+        self.normalize_fn = normalize_fn
 
     def forward(self, x, mask = None):
         b, n, _, h = *x.shape, self.heads
@@ -55,18 +93,36 @@ class Attention(nn.Module):
         mask_value = -torch.finfo(dots.dtype).max
 
         if mask is not None:
-            mask = F.pad(mask.flatten(1), (1, 0), value = True)
+            mask = f.pad(mask.flatten(1), (1, 0), value = True)
             assert mask.shape[-1] == dots.shape[-1], 'mask has incorrect dimensions'
             mask = mask[:, None, :] * mask[:, :, None]
             dots.masked_fill_(~mask, mask_value)
             del mask
 
-        attn = dots.softmax(dim=-1)
+        # attn = dots.softmax(dim=-1)
+        attn = self.normalize_fn(dots)
 
         out = torch.einsum('bhij,bhjd->bhid', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         out =  self.to_out(out)
         return out
+
+
+class TransformerAA(nn.Module):
+    """all normalization"""
+    def __init__(self, dim, depth, heads, mlp_dim, dropout):
+        super().__init__()
+        self.layers = nn.ModuleList([])
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                Residual(PostNorm(dim, Attention(dim, heads = heads, dropout = dropout, normalize_fn=normalize))),
+                Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
+            ]))
+    def forward(self, x, mask = None):
+        for attn, ff in self.layers:
+            x = attn(x, mask = mask)
+            x = ff(x)
+        return x
 
 
 class Transformer(nn.Module):
@@ -83,4 +139,5 @@ class Transformer(nn.Module):
             x = attn(x, mask = mask)
             x = ff(x)
         return x
+
 

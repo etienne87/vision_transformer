@@ -229,7 +229,7 @@ class Animation(object):
         max_objects: maximum number of objects
     """
 
-    def __init__(self, height, width, channels, max_stop=15, max_classes=1, max_objects=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.2):
+    def __init__(self, height, width, channels, max_stop=15, max_classes=1, max_objects=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.05):
         self.height, self.width, self.channels = height, width, channels
         self.max_stop = max_stop
         self.max_classes = max_classes

@@ -132,9 +132,3 @@ class AxialTransformer(nn.Module):
         return x
 
 
-if __name__ == '__main__':
-    b,c,h,w,z = 5,8,28,29,30 
-    x = torch.randn(b,h,w,z,c)
-    net = AxialTransformer(3, c, 1, 2, 64, 0)
-    y = net(x)
-    print(y.shape)

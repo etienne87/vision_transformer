@@ -9,20 +9,6 @@ from core.positional_encoding import LearnedPositionalEncoding
 from core.temporal import seq_wise
 
 
-def flatten(x):
-    x = rearrange(x, 'b c ... -> b (...) c')
-    return x
-
-def unflatten(x, *dims):
-    pat = ""
-    variables = {}
-    for i, dim in enumerate(dims):
-        key = chr(ord('h')+i)
-        pat += key+ ' '
-        variables[key] = dim
-    sent = 'b ('+pat+') c -> b c ' + pat 
-    x = rearrange(x, sent, **variables)
-    return x
 
 
 
@@ -53,10 +39,9 @@ class AttentionRNN(nn.Module):
         result = []
         for t, xt in enumerate(xseq):
             #1. cat prev_h,x_flat
-            x_flat = xt
-            x_flat = self.xh(x_flat)
+            xh = self.xh(xt)
 
-            cat = torch.cat((self.prev_h, x_flat), dim=1)
+            cat = torch.cat((self.prev_h, xh), dim=1)
             cat = self.pex(cat)
             
             #2. apply self-attention
@@ -79,6 +64,25 @@ class AttentionRNN(nn.Module):
         if len(self.prev_h) == len(mask):
             self.prev_h.detach_()
             self.prev_h *= mask[...,0]
+
+
+
+""" For interfacing with a normal conv architecture
+"""
+def flatten(x):
+    x = rearrange(x, 'b c ... -> b (...) c')
+    return x
+
+def unflatten(x, *dims):
+    pat = ""
+    variables = {}
+    for i, dim in enumerate(dims):
+        key = chr(ord('h')+i)
+        pat += key+ ' '
+        variables[key] = dim
+    sent = 'b ('+pat+') c -> b c ' + pat 
+    x = rearrange(x, sent, **variables)
+    return x
 
 
 class ImagesAttentionRNN(AttentionRNN):

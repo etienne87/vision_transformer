@@ -34,11 +34,9 @@ class ViT3d(nn.Module):
 
     def forward(self, x):
         t,b,c,h,w = x.shape
-        x = x.permute(1,2,3,4,0).contiguous()
-
         p1, p2, p3 = self.patch_dim
-        x = rearrange(x, 'b c (h p1) (w p2) (z p3) -> b (h w z) (p1 p2 p3 c)', p1 = p1, p2 = p2, p3=p3)
-
+        
+        x = rearrange(x, '(z p3) b c (h p1) (w p2) -> b (h w z) (p1 p2 p3 c)', p1 = p1, p2 = p2, p3=p3)
         x = self.linear_encoding(x)
         x = self.position_encoding(x)
 
@@ -48,9 +46,8 @@ class ViT3d(nn.Module):
         l1 =  h // p1 
         l2 =  w // p2 
         l3 =  t // p3
-        y = rearrange(x, 'b (l1 l2 l3) (p1 p2 p3 d) -> b d (l1 p1) (l2 p2) (l3 p3)', l1=l1, l2=l2, l3=l3, p1=p1, p2=p2, p3=p3)
+        y2 = rearrange(x, 'b (l1 l2 l3) (p1 p2 p3 d) ->(l3 p3) b d (l1 p1) (l2 p2)', l1=l1, l2=l2, l3=l3, p1=p1, p2=p2, p3=p3)
         
-        y = y.permute(4,0,1,2,3).contiguous()
         return y
 
 

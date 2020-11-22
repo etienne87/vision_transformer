@@ -3,7 +3,7 @@ Transformer for Segmentation
 """
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as f
 
 from core.transformer import Transformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
@@ -13,12 +13,9 @@ from einops import rearrange
 
 
 class ViT(nn.Module):
-    def __init__(self, in_channels, out_channels, patch_dim=16, num_layers=2, num_heads=32, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+    def __init__(self, in_channels, out_channels, patch_dim=16, num_layers=2, num_heads=32, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0., conv_representation=False):
         super().__init__()
 
-        self.patch_dim = patch_dim 
-        self.embedding_dim = embedding_dim
-        self.num_heads = num_heads
         self.patch_dim = patch_dim
 
         self.flatten_dim_in = patch_dim * patch_dim * in_channels
@@ -31,13 +28,13 @@ class ViT(nn.Module):
         self.flatten_dim_out = patch_dim * patch_dim * out_channels
         self.linear_decoding = nn.Linear(embedding_dim, self.flatten_dim_out)
 
+
     def forward(self, x):
         b,c,h,w = x.shape
         p = self.patch_dim
+
         x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
-
         x = self.linear_encoding(x)
-
         x = self.position_encoding(x)
 
         x = self.transformer(x)

@@ -53,10 +53,18 @@ def vit3d():
     print(y.shape)
 
 
-def att_rnn():
+def attention_rnn():
     t,b,c,h,w = 16,10,3,16,16
     x = torch.randn(t,b,c,h,w)
     net = ImagesAttentionRNN(c, 16, 8)
+    y = net(x)
+    print(y.shape)
+
+
+def vit_rnn():
+    t,b,c,h,w = 16,10,3,16,16
+    x = torch.randn(t,b,c,h,w)
+    net = ViTRNN(c, 16, 8)
     y = net(x)
     print(y.shape)
 
@@ -100,6 +108,7 @@ def unet_rnn():
     net.reset()
     y = net(x)
     print(y.shape)
+
 
 if __name__ == '__main__':
     import fire

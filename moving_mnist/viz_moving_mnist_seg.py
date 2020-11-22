@@ -10,7 +10,7 @@ from moving_mnist_segmentation import make_moving_mnist
 
 
 
-def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max_frames_per_epoch=10000, max_frames_per_video=10):
+def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max_frames_per_epoch=10000, max_frames_per_video=100):
     dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height=height, width=width, max_frames_per_epoch=max_frames_per_epoch, max_frames_per_video=max_frames_per_video)
     show_batchsize = batch_size 
 
@@ -19,6 +19,7 @@ def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max
     ncols = show_batchsize // nrows
     grid = np.zeros((nrows, ncols, height, width, 3), dtype=np.uint8)
     grid_label = np.zeros_like(grid)
+    quit = False
 
     for i, data in enumerate(dataloader):
         batch, targets = data['inputs'], data['labels']
@@ -44,8 +45,11 @@ def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max
 
             key = cv2.waitKey(0)
             if key == 27:
+                quit = True
                 break
         
+        if quit:
+            break
         sys.stdout.write('\rtime: %f' % (runtime))
         sys.stdout.flush()
         start = time.time()

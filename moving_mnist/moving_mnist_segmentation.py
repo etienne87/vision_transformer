@@ -49,7 +49,7 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-            max_objects=2, train=True, max_frames_per_video=100): 
+            max_objects=2, train=True, max_frames_per_video=100, colorization_problem=False): 
         self.dataset_ = TRAIN_DATASET if train else TEST_DATASET
         self.label_offset = 1
         self.channels = channels
@@ -59,6 +59,7 @@ class MovingMnist(toy.Animation):
         max_classes = 10
         self.video_info = str(uuid.uuid4()) 
         self.label_img = np.zeros((height, width), dtype=np.uint8)
+        self.colorization_problem = colorization_problem
         super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, max_objects)
 
     def reset(self):
@@ -68,6 +69,7 @@ class MovingMnist(toy.Animation):
             idx = np.random.randint(0, len(self.dataset_))
             x, y = self.dataset_[idx]
             self.objects[i].class_id = y
+            self.objects[i].id = np.random.randint(1, 100)
             self.objects[i].idx = idx
             img = x.numpy()[0]
             img = (img-img.min())/(img.max()-img.min())
@@ -93,8 +95,11 @@ class MovingMnist(toy.Animation):
             self.img[y1:y2, x1:x2] = np.maximum(self.img[y1:y2, x1:x2], thumbnail2)
             thumbnail = thumbnail.mean(axis=2)
             mask_thumb = np.zeros((thumbnail.shape[0], thumbnail.shape[1]), dtype=np.uint8)
-            mask_thumb[thumbnail >= 0.5] = digit.class_id + self.label_offset
-            self.label_img[y1:y2, x1:x2] = np.maximum(self.label_img[y1:y2, x1:x2], mask_thumb)
+            if self.colorization_problem:
+                mask_thumb[thumbnail >= 0.5] = digit.id
+            else:
+                mask_thumb[thumbnail >= 0.5] = digit.class_id + self.label_offset
+            self.label_img[y1:y2, x1:x2] = mask_thumb * (mask_thumb > 0) + self.label_img[y1:y2, x1:x2] * (mask_thumb == 0)
             
         output = self.img 
         mask = self.label_img
@@ -162,7 +167,7 @@ class MovingMNISTSegDataset(MultiStreamDataLoader):
 
 
 def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256, 
-                      max_frames_per_video=10, max_frames_per_epoch=5000, train=True,max_objects=2):
+                      max_frames_per_video=10, max_frames_per_epoch=5000, train=True,max_objects=2, colorization_problem=False):
     """Creates the dataloader for moving mnist
     
     Args:
@@ -180,7 +185,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     dummy_list = [i for i in range(n)]
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, max_objects=max_objects)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, max_objects=max_objects, colorization_problem=colorization_problem)
     dataset = MovingMNISTSegDataset(datasets, collate_fn, parallel=parallel)
 
     return dataset, ['background']+[str(i) for i in range(10)]

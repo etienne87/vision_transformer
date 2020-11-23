@@ -10,8 +10,8 @@ from moving_mnist_segmentation import make_moving_mnist
 
 
 
-def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max_frames_per_epoch=10000, max_frames_per_video=100):
-    dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height=height, width=width, max_frames_per_epoch=max_frames_per_epoch, max_frames_per_video=max_frames_per_video)
+def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max_frames_per_epoch=10000, max_frames_per_video=100, colorization=False):
+    dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height=height, width=width, max_frames_per_epoch=max_frames_per_epoch, max_frames_per_video=max_frames_per_video, colorization_problem=colorization)
     show_batchsize = batch_size 
 
     start = 0

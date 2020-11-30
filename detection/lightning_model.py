@@ -13,38 +13,28 @@ import cv2
 import numpy as np
 from types import SimpleNamespace
 
-from moving_mnist.moving_mnist_segmentation import make_moving_mnist
+from moving_mnist.moving_mnist_detection import make_moving_mnist
 
 from torchvision.utils import make_grid
-
-from kornia.utils import one_hot, mean_iou
-from kornia.losses import DiceLoss, dice_loss
-
-from segmentation.utils import normalize, filter_outliers
+from detection.hungarian_loss import HungarianMatcher, SetCriterion
+from detection.utils import normalize, filter_outliers
 from core.temporal import time_to_batch
 
 import skvideo.io
 
 
 
-class SegLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.xe = nn.CrossEntropyLoss()
-        self.dice = DiceLoss()
-
-    def forward(self, out, y):
-        return self.xe(out,y) + self.dice(out,y)
-
         
-class SegmentationModel(pl.LightningModule) :
+class DetectionModel(pl.LightningModule) :
   
     def __init__(self, model, hparams: argparse.Namespace):     
         super().__init__()
 
         self.model = model
         self.hparams = hparams
-        self.criterion = SegLoss()
+        weight_dict = {'loss_ce': 1, 'loss_bbox': hparams.bbox_loss_coef, 'loss_giou': hparams.giou_loss_coef}
+        matcher = HungarianMatcher(hparams.cost_class, hparams.cost_bbox, hparams.cost_giou)
+        self.criterion = SetCriterion(11, matcher, weight_dict, hparams.height, hparams.width, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
 
     def _inference(self, batch, batch_nb):
         x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] 
@@ -55,8 +45,10 @@ class SegmentationModel(pl.LightningModule) :
         y = time_to_batch(y)[0].long()
         return out, y
 
-    def training_step(self,batch,batch_nb) :
-        out, y = self._inference(batch,batch_nb)
+    def training_step(self,batch, batch_nb) :
+        out, y = self._inference(batch, batch_nb)
+        import pdb;pdb.set_trace()
+
         loss = self.criterion(out, y)
         self.log('train_loss', loss)
         return {'loss': loss}
@@ -75,7 +67,9 @@ class SegmentationModel(pl.LightningModule) :
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return [opt], [sch]
-       
+  
+    """
+    TODO
     def demo_video(self, dataloader, epoch=-1) :
         self.eval()
         
@@ -140,5 +134,5 @@ class SegmentationModel(pl.LightningModule) :
                            
             cv2.destroyWindow("histos")                 
             out_video.close()
-    
+    """ 
     

@@ -26,6 +26,7 @@ class DetViT(nn.Module):
         self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
+        self.linear_decoding = nn.Linear(embedding_dim, out_channels)
         #self.decoder = Transformer(embedding_dim, 1, num_heads, hidden_dim, dropout)
 
 
@@ -38,7 +39,8 @@ class DetViT(nn.Module):
         x = self.position_encoding(x)
 
         x = self.transformer(x)
-        y = self.pool(x)
+        x = self.pool(x)
+        y = self.linear_decoding(x)
         return y
 
 

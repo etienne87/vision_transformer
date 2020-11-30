@@ -38,6 +38,7 @@ class QuerySetAttention(nn.Module):
     def __init__(self, num_queries, dim, heads):
         super().__init__()
         self.queries = nn.Parameter(torch.randn(1, num_queries, dim))
+        nn.init.xavier_uniform_(self.queries)
         self.attn_in = SelfAttention(dim, heads)
         self.attn_out = SelfAttention(dim, heads)
 

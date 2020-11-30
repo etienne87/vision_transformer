@@ -7,8 +7,7 @@ from __future__ import absolute_import
 
 import math
 import numpy as np
-
-BBOX_DTYPE = np.dtype({'names':['t','x','y','w','h','class_id','track_id','class_confidence'], 'formats':['<i8','<f4','<f4','<f4','<f4','<u4','<u4','<f4'], 'offsets':[0,8,12,16,20,24,28,32], 'itemsize':40})
+from data.box_api import EventBbox
 
 # FLAGS for moving box collisions
 OK = 0
@@ -258,7 +257,7 @@ class Animation(object):
         self.t = 0
 
     def __next__(self):
-        boxes = np.zeros((len(self.objects),), dtype=BBOX_DTYPE)
+        boxes = np.zeros((len(self.objects),), dtype=EventBbox)
         for i, anim in enumerate(self.objects):
             x1, y1, x2, y2 = next(anim)
             boxes['t'][i] = self.t

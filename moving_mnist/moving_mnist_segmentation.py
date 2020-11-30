@@ -21,17 +21,6 @@ from torchvision import datasets, transforms
 from functools import partial 
 
 
-TRAIN_DATASET = datasets.MNIST('../data', train=True, download=True,
-                                       transform=transforms.Compose([
-                                           transforms.ToTensor(),
-                                           transforms.Normalize((0.1307,), (0.3081,))
-                                       ]))
-
-TEST_DATASET = datasets.MNIST('../data', train=False, download=True,
-                                       transform=transforms.Compose([
-                                           transforms.ToTensor(),
-                                           transforms.Normalize((0.1307,), (0.3081,))
-                                       ]))
 
 
 class MovingMnist(toy.Animation):
@@ -49,8 +38,10 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-            max_objects=2, train=True, max_frames_per_video=100, colorization_problem=False): 
-        self.dataset_ = TRAIN_DATASET if train else TEST_DATASET
+            max_objects=2, train=True, max_frames_per_video=100, colorization_problem=False, data_caching_path='/tmp/mnist_data'): 
+        self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
+                                       transform=transforms.Compose([transforms.ToTensor(),
+                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
         self.label_offset = 1
         self.channels = channels
         self.steps = 0

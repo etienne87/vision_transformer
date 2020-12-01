@@ -40,7 +40,7 @@ class DetectionModel(pl.LightningModule) :
         self.criterion = SetCriterion(self.num_classes, matcher, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
         self.post_process = PostProcess()
 
-    def _inference(self, batch, batch_nb):
+    def _inference(self, batch):
         x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
         if hasattr(self.model, "reset"):
             self.model.reset(reset_mask)
@@ -50,13 +50,19 @@ class DetectionModel(pl.LightningModule) :
         return out
     
     @torch.no_grad()
-    def get_boxes(self, batch, batch_nb):
-        h, w = batch['inputs'].shape[-2:]
-        out = self._inference(batch, batch_nb)
-        target_sizes = torch.FloatTensor([h, w]*len(out)).reshape(len(out), 2)
-        import pdb;pdb.set_trace()
-        boxes = self.post_process(out, target_sizes) 
-        return boxes
+    def get_boxes(self, batch, score_thresh):
+        t, b, _, h, w = batch['inputs'].shape
+        out = self._inference(batch)
+        batch_size = len(out['pred_logits'])
+        target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(batch['inputs'])
+        boxes = self.post_process(out, target_sizes, score_thresh) 
+        boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
+        # boxes_txn = [[None]*b]*t
+        # for i in range(len(boxes)):
+        #     tbin = i//t
+        #     num = i%b
+        #     boxes_txn[tbin][num] = boxes[i]
+        return boxes_txn
 
     def get_loss(self, batch, batch_nb):
         h, w = batch['inputs'].shape[-2:]
@@ -64,7 +70,7 @@ class DetectionModel(pl.LightningModule) :
         targets = batch['labels']
         targets = list(chain.from_iterable(targets))
         targets = [{'labels': bbox[:,4].long(), 'boxes': box_xyxy_to_cxcywh(bbox[:,:4])*scale_factor} for bbox in targets]
-        out = self._inference(batch, batch_nb)
+        out = self._inference(batch)
         loss_dict = self.criterion(out, targets)
         loss = sum([loss_dict[key]*weight for key, weight in self.weight_dict.items()]) 
         return out, loss, loss_dict
@@ -95,7 +101,7 @@ class DetectionModel(pl.LightningModule) :
         return [opt], [sch]
   
     @torch.no_grad()
-    def demo_video(self, dataloader, num_batches=100, show_video=False):
+    def demo_video(self, dataloader, num_batches=10000, show_video=False):
         """
         This runs our detector on several videos of the testing dataset
         """
@@ -118,7 +124,7 @@ class DetectionModel(pl.LightningModule) :
         self.eval()
 
         if show_video:
-            window_name = "test epoch {:d}".format(epoch)
+            window_name = 'detection'
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
         for batch_nb, batch in enumerate(islice(dataloader, num_batches)):
@@ -127,12 +133,11 @@ class DetectionModel(pl.LightningModule) :
             batch["inputs"] = batch["inputs"].to(self.device)
             batch["mask_keep_memory"] = batch["mask_keep_memory"].to(self.device)
 
-            predictions = self.get_boxes(batch["inputs"], score_thresh=0.5)
-            import pdb;pdb.set_trace()
+            predictions = self.get_boxes(batch, score_thresh=0.5)
 
             for t in range(len(images)):
                 for i in range(len(images[0])):
-                    frame = self.test_data.get_vis_func()(images[t][i])
+                    frame = dataloader.get_vis_func()(images[t][i])
                     pred = predictions[t][i]
                     target = batch["labels"][t][i]
 
@@ -141,14 +146,14 @@ class DetectionModel(pl.LightningModule) :
                     if target.dtype.isbuiltin:
                         target = box_api.box_vectors_to_bboxes(target[:,:4], target[:,4])
 
-                    if pred['boxes'] is not None:
+                    if len(pred['scores']):
                         boxes = pred['boxes'].cpu().data.numpy()
                         labels = pred['labels'].cpu().data.numpy()
                         scores = pred['scores'].cpu().data.numpy()
                         bboxes = box_api.box_vectors_to_bboxes(boxes, labels, scores)
-                        frame = box_api.draw_box_events(frame, bboxes, self.label_map, draw_score=True, thickness=2)
+                        frame = box_api.draw_box_events(frame, bboxes, dataloader.label_map, draw_score=True, thickness=2)
 
-                    frame = box_api.draw_box_events(frame, target, self.label_map, force_color=[255,255,255], draw_score=False, thickness=1)
+                    frame = box_api.draw_box_events(frame, target, dataloader.label_map, force_color=[255,255,255], draw_score=False, thickness=1)
 
                     y = i // ncols
                     x = i % ncols
@@ -157,11 +162,11 @@ class DetectionModel(pl.LightningModule) :
                     grid[y1:y2,x1:x2] = frame
 
                 if show_video:
-                    cv2.imshow('result', grid)
+                    cv2.imshow(window_name, grid)
                     cv2.waitKey(5)
 
 
-                out_video.writeFrame(frame[...,::-1])
+                out_video.writeFrame(grid[...,::-1])
 
         if show_video:
             cv2.destroyWindow(window_name)

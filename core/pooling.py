@@ -40,6 +40,9 @@ class QuerySetAttention(nn.Module):
         self.queries = nn.Parameter(torch.randn(1, num_queries, dim))
         nn.init.xavier_uniform_(self.queries)
         self.attn_in = SelfAttention(dim, heads)
+        
+        #fixme: to remove
+        self.attn_out = SelfAttention(dim, heads)
 
     def forward(self, x):
         b = x.shape[0]

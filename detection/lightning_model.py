@@ -57,11 +57,6 @@ class DetectionModel(pl.LightningModule) :
         target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(batch['inputs'])
         boxes = self.post_process(out, target_sizes, score_thresh) 
         boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
-        # boxes_txn = [[None]*b]*t
-        # for i in range(len(boxes)):
-        #     tbin = i//t
-        #     num = i%b
-        #     boxes_txn[tbin][num] = boxes[i]
         return boxes_txn
 
     def get_loss(self, batch, batch_nb):
@@ -106,13 +101,7 @@ class DetectionModel(pl.LightningModule) :
         This runs our detector on several videos of the testing dataset
         """
         hparams = self.hparams
-
         height, width = hparams.height, hparams.width
-        batch_size = hparams.batch_size
-        nrows = 2 ** ((batch_size.bit_length() - 1) // 2)
-        ncols = int(np.ceil(hparams.batch_size / nrows))
-
-        grid = np.zeros((nrows * hparams.height, ncols * hparams.width, 3), dtype=np.uint8)
         video_name = os.path.join(hparams.train_dir, 'videos', f'video#-1.mp4')
 
         dir = os.path.dirname(video_name)
@@ -132,6 +121,11 @@ class DetectionModel(pl.LightningModule) :
 
             batch["inputs"] = batch["inputs"].to(self.device)
             batch["mask_keep_memory"] = batch["mask_keep_memory"].to(self.device)
+
+            batch_size = images.shape[1]
+            nrows = 2 ** ((batch_size.bit_length() - 1) // 2)
+            ncols = int(np.ceil(batch_size / nrows))
+            grid = np.zeros((nrows * hparams.height, ncols * hparams.width, 3), dtype=np.uint8)
 
             predictions = self.get_boxes(batch, score_thresh=0.5)
 
@@ -155,8 +149,8 @@ class DetectionModel(pl.LightningModule) :
 
                     frame = box_api.draw_box_events(frame, target, dataloader.label_map, force_color=[255,255,255], draw_score=False, thickness=1)
 
-                    y = i // ncols
-                    x = i % ncols
+                    y = i // ncols 
+                    x = i % ncols 
                     y1, y2 = y*height, (y+1)*height
                     x1, x2 = x*width, (x+1)*width
                     grid[y1:y2,x1:x2] = frame

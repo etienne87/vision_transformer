@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from detection.box_ops import box_cxcywh_to_xyxy
 
 
+
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
     @torch.no_grad()

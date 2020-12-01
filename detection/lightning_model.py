@@ -11,17 +11,17 @@ import os
 import argparse
 import cv2
 import numpy as np
-from types import SimpleNamespace
-
-from moving_mnist.moving_mnist_detection import make_moving_mnist
-
-from torchvision.utils import make_grid
-from detection.hungarian_loss import HungarianMatcher, SetCriterion
-from detection.utils import normalize, filter_outliers
-from core.temporal import time_to_batch
-
 import skvideo.io
 
+from moving_mnist.moving_mnist_detection import make_moving_mnist
+from core.temporal import time_to_batch
+from detection.hungarian_loss import HungarianMatcher, SetCriterion
+from detection.utils import normalize, filter_outliers
+from detection.box_ops import box_xyxy_to_cxcywh
+
+from types import SimpleNamespace
+from itertools import chain
+from torchvision.utils import make_grid
 
 
         
@@ -32,32 +32,39 @@ class DetectionModel(pl.LightningModule) :
 
         self.model = model
         self.hparams = hparams
+        self.num_classes = 10
         weight_dict = {'loss_ce': 1, 'loss_bbox': hparams.bbox_loss_coef, 'loss_giou': hparams.giou_loss_coef}
         matcher = HungarianMatcher(hparams.cost_class, hparams.cost_bbox, hparams.cost_giou)
-        self.criterion = SetCriterion(11, matcher, weight_dict, hparams.height, hparams.width, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
+        self.criterion = SetCriterion(self.num_classes, matcher, weight_dict, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
 
     def _inference(self, batch, batch_nb):
-        x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"] 
+        x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
         if hasattr(self.model, "reset"):
             self.model.reset(reset_mask)
         out = self.model.forward(x) 
         out = time_to_batch(out)[0]
-        y = time_to_batch(y)[0].long()
-        return out, y
+        out = {'pred_logits': out[...,4:], 'pred_boxes': out[..., :4].sigmoid()} 
+        return out
+
+    def get_loss(self, batch, batch_nb):
+        h, w = batch['inputs'].shape[-2:]
+        scale_factor = torch.tensor([1./w, 1./h, 1./w, 1./h]).type_as(batch['inputs'])
+        targets = batch['labels']
+        targets = list(chain.from_iterable(targets))
+        targets = [{'labels': bbox[:,4].long(), 'boxes': box_xyxy_to_cxcywh(bbox[:,:4])*scale_factor} for bbox in targets]
+        out = self._inference(batch, batch_nb)
+        loss_dict = self.criterion(out, targets)
+        return loss
 
     def training_step(self,batch, batch_nb) :
-        out, y = self._inference(batch, batch_nb)
-        import pdb;pdb.set_trace()
-
-        loss = self.criterion(out, y)
-        self.log('train_loss', loss)
+        loss = self.get_loss(batch, batch_nb)
+        self.log('train_loss', loss.item())
         return {'loss': loss}
         
     def validation_step(self, batch, batch_nb):
-        out, y = self._inference(batch,batch_nb) 
-        loss = self.criterion(out, y)
-        self.log('val_loss', loss)
-        return {'val_loss': loss.item()} 
+        with torch.no_grad():
+            loss = self.get_loss(batch, batch_nb)
+        self.log('val_loss', loss.item())
 
     def validation_epoch_end(self, validation_step_outputs) :
         avg_loss = torch.mean(torch.tensor([elt['val_loss'] for elt in validation_step_outputs]))

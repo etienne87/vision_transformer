@@ -248,7 +248,7 @@ class Animation(object):
 
     def reset(self):
         self.objects = []
-        self.num_objects = np.random.randint(1, self.max_objects + 1)
+        self.num_objects = 2 #np.random.randint(1, self.max_objects + 1) #fixme do not commit
         self.img = np.zeros((self.height, self.width, self.channels), dtype=np.float32)
         for i in range(self.num_objects):
             self.objects += [MovingSquare(self.height, self.width, self.max_stop,

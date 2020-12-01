@@ -11,7 +11,7 @@ from moving_mnist_detection import make_moving_mnist
 
 
 
-def show_mnist_det(tbins=10, num_workers=1, batch_size=8, height=128, width=128):
+def show_mnist_det(tbins=10, num_workers=1, batch_size=8, height=128, width=128, delay=5):
     dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height, width, 10, max_frames_per_epoch=10000)
     show_batchsize = batch_size 
 
@@ -34,7 +34,7 @@ def show_mnist_det(tbins=10, num_workers=1, batch_size=8, height=128, width=128)
                 grid[n//ncols, n%ncols] = img
             im = grid.swapaxes(1, 2).reshape(nrows * height, ncols * width, 3)
             cv2.imshow('dataset', im)
-            key = cv2.waitKey(5)
+            key = cv2.waitKey(delay)
             if key == 27:
                 break
         

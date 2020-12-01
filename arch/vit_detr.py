@@ -23,11 +23,11 @@ class DetViT(nn.Module):
         self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
 
         self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
-        self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)
-        #self.decoder = Transformer(embedding_dim, 1, num_heads, hidden_dim, dropout)
+        self.decoder = Transformer(embedding_dim, 1, num_heads, hidden_dim, dropout)
 
 
     def forward(self, x):
@@ -38,8 +38,9 @@ class DetViT(nn.Module):
         x = self.linear_encoding(x)
         x = self.position_encoding(x)
 
-        x = self.transformer(x)
+        x = self.encoder(x)
         x = self.pool(x)
+        x = self.decoder(x)
         y = self.linear_decoding(x)
         return y
 

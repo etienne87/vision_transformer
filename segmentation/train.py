@@ -18,7 +18,7 @@ def get_model(model_name, num_layers=3):
     return SequenceWise(model) if model_name == 'ViT' else model
 
 
-def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=12, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=10,
+def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=12, batch_size=64, num_classes=11, num_workers=1, max_frames_per_video=100,
     demo_every=2,                                
     max_frames_per_epoch=10000, val_max_frames_per_epoch=1000, max_objects=1, precision=32, resume=False, just_demo=False):
     """

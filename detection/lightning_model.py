@@ -33,9 +33,9 @@ class DetectionModel(pl.LightningModule) :
         self.model = model
         self.hparams = hparams
         self.num_classes = 10
-        weight_dict = {'loss_ce': 1, 'loss_bbox': hparams.bbox_loss_coef, 'loss_giou': hparams.giou_loss_coef}
+        self.weight_dict = {'loss_ce': 1, 'loss_bbox': hparams.bbox_loss_coef, 'loss_giou': hparams.giou_loss_coef}
         matcher = HungarianMatcher(hparams.cost_class, hparams.cost_bbox, hparams.cost_giou)
-        self.criterion = SetCriterion(self.num_classes, matcher, weight_dict, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
+        self.criterion = SetCriterion(self.num_classes, matcher, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
 
     def _inference(self, batch, batch_nb):
         x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
@@ -54,16 +54,21 @@ class DetectionModel(pl.LightningModule) :
         targets = [{'labels': bbox[:,4].long(), 'boxes': box_xyxy_to_cxcywh(bbox[:,:4])*scale_factor} for bbox in targets]
         out = self._inference(batch, batch_nb)
         loss_dict = self.criterion(out, targets)
-        return loss
+        loss = sum([loss_dict[key]*weight for key, weight in self.weight_dict.items()]) 
+        return loss, loss_dict
 
     def training_step(self,batch, batch_nb) :
-        loss = self.get_loss(batch, batch_nb)
+        loss, loss_dict = self.get_loss(batch, batch_nb)
+        for key in self.weight_dict.keys():
+            self.log('train_loss_'+key, loss_dict[key])
         self.log('train_loss', loss.item())
         return {'loss': loss}
         
     def validation_step(self, batch, batch_nb):
         with torch.no_grad():
-            loss = self.get_loss(batch, batch_nb)
+            loss, loss_dict = self.get_loss(batch, batch_nb)
+        for key in self.weight_dict.keys():
+            self.log('train_loss_'+key, loss_dict[key])
         self.log('val_loss', loss.item())
 
     def validation_epoch_end(self, validation_step_outputs) :

@@ -42,7 +42,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     else:
         ckpt = None
 
-    if params.just_demo or params.just_val or params.just_test:
+    if params.just_demo or params.just_val:
         checkpoint = torch.load(ckpt)
         model.load_state_dict(checkpoint['state_dict'])
     

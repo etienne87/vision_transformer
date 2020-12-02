@@ -124,8 +124,9 @@ class DetectionModel(pl.LightningModule) :
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
-        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        return [opt], [sch]
+        return opt
+        # sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
+        # return [opt], [sch]
 
     def inference_epoch_end(self, outputs, mode='val'):
         """
@@ -192,13 +193,13 @@ class DetectionModel(pl.LightningModule) :
                     dt_boxes = box_api.box_vectors_to_bboxes(boxes, labels, scores, ts=ts)
                     dt_detections[name].append(dt_boxes)
                 else:
-                    dt_detections[name].append(np.zeros((0), dtype=EventBbox))
+                    dt_detections[name].append(np.zeros((0), dtype=box_api.EventBbox))
 
                 if len(gt_boxes):
                     gt_boxes["t"] = ts
                     gt_detections[name].append(gt_boxes)
                 else:
-                    gt_detections[name].append(np.zeros((0), dtype=EventBbox))
+                    gt_detections[name].append(np.zeros((0), dtype=box_api.EventBbox))
 
 
         return dt_detections, gt_detections

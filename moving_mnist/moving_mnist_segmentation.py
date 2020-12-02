@@ -33,12 +33,14 @@ class MovingMnist(toy.Animation):
         width: frame width
         channels: 1 or 3 gray or color
         max_stop: random pause in animation
+        min_objects: minimum number of objects per animation
         max_objects: maximum number of objects per animation
         train: use training/ validation part of MNIST
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-            max_objects=2, train=True, max_frames_per_video=100, colorization_problem=False, data_caching_path='/tmp/mnist_data'): 
+            min_objects=1, max_objects=2, 
+            train=True, max_frames_per_video=100, colorization_problem=False, data_caching_path='/tmp/mnist_data'): 
         self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
@@ -51,7 +53,7 @@ class MovingMnist(toy.Animation):
         self.video_info = str(uuid.uuid4()) 
         self.label_img = np.zeros((height, width), dtype=np.uint8)
         self.colorization_problem = colorization_problem
-        super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, max_objects)
+        super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, min_objects, max_objects)
 
     def reset(self):
         super(MovingMnist, self).reset()
@@ -158,7 +160,7 @@ class MovingMNISTSegDataset(MultiStreamDataLoader):
 
 
 def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256, 
-                      max_frames_per_video=10, max_frames_per_epoch=5000, train=True,max_objects=2, colorization_problem=False):
+                      max_frames_per_video=10, max_frames_per_epoch=5000, train=True, min_objects=1, max_objects=2, colorization_problem=False):
     """Creates the dataloader for moving mnist
     
     Args:
@@ -176,7 +178,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     dummy_list = [i for i in range(n)]
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, max_objects=max_objects, colorization_problem=colorization_problem)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, min_objects=min_objects, max_objects=max_objects, colorization_problem=colorization_problem)
     dataset = MovingMNISTSegDataset(datasets, collate_fn, parallel=parallel)
 
     return dataset, ['background']+[str(i) for i in range(10)]

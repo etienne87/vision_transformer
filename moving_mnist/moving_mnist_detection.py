@@ -21,11 +21,15 @@ from functools import partial
 
 
 class FileMetadata(object):
-    def __init__(self, filename, duration, delta_t, tbins):
-        self.filename = filename
+    """Video Infos
+    """
+    def __init__(self, path, duration, delta_t, tbins):
+        self.path = path 
         self.delta_t = delta_t
         self.duration = duration
         self.tbins = tbins
+        self.padding = False
+        self.start_ts = 0
 
 
 class MovingMnist(toy.Animation):

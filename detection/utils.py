@@ -54,3 +54,22 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
+
+def cuda_tick():
+    torch.cuda.synchronize()
+    return time.time()
+
+def cuda_time(func):
+    def wrapper(*args, **kwargs):
+        start = cuda_tick()
+        out = func(*args, **kwargs)
+        end = cuda_tick()
+        rt = end-start
+        freq = 1./rt
+        if freq > 0:
+            print(freq, ' it/s @ ', func)
+        else:
+            print(rt, ' s/it @ ', func)
+        return out
+    return wrapper

@@ -7,7 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
 from detection.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
-from detection.utils import is_dist_avail_and_initialized, get_world_size, accuracy 
+from detection.utils import is_dist_avail_and_initialized, get_world_size, accuracy, cuda_time 
 
 
 

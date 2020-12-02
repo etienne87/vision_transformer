@@ -25,6 +25,7 @@ from data import box_api
 from types import SimpleNamespace
 from itertools import chain, islice
 from torchvision.utils import make_grid
+from collections import defaultdict
 
 
         
@@ -36,6 +37,7 @@ class DetectionModel(pl.LightningModule) :
         self.model = model
         self.hparams = hparams
         self.num_classes = 10
+        self.label_map = [str(i) for i in range(self.num_classes)]
         self.weight_dict = {'loss_ce': 1, 'loss_bbox': hparams.bbox_loss_coef, 'loss_giou': hparams.giou_loss_coef}
         matcher = HungarianMatcher(hparams.cost_class, hparams.cost_bbox, hparams.cost_giou)
         self.criterion = SetCriterion(self.num_classes, matcher, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
@@ -52,14 +54,14 @@ class DetectionModel(pl.LightningModule) :
     
     @torch.no_grad()
     def get_boxes(self, batch, score_thresh):
-        t, b, _, h, w = batch['inputs'].shape
         out = self._inference(batch)
-        return self.get_boxes_from_network_output(out, score_thresh)
+        return self.get_boxes_from_network_output(out, batch['inputs'].shape, score_thresh)
 
-    @torch.no_grad
-    def get_boxes_from_network_output(self, out, score_thresh):
+    @torch.no_grad()
+    def get_boxes_from_network_output(self, out, in_shape, score_thresh):
+        t,b,_,h,w = in_shape
         batch_size = len(out['pred_logits'])
-        target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(batch['inputs'])
+        target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(out['pred_logits'])
         boxes = self.post_process(out, target_sizes, score_thresh) 
         # we fold the flatten list
         boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
@@ -85,23 +87,24 @@ class DetectionModel(pl.LightningModule) :
         
     def validation_step(self, batch, batch_nb):
         with torch.no_grad():
-            preds, loss, loss_dict = self.get_loss(batch, batch_nb)
+            out, loss, loss_dict = self.get_loss(batch, batch_nb)
         for key in self.weight_dict.keys():
-            self.log('train_loss_'+key, loss_dict[key])
+            self.log('val_loss_'+key, loss_dict[key])
         self.log('val_loss', loss.item())
 
         # accumulate results for meanAP measurement
-        preds = self.get_boxes_from_network_output(out, score_thresh=0.05)
+        preds = self.get_boxes_from_network_output(out, batch['inputs'].shape, score_thresh=0.05)
         dt_dic, gt_dic = self.accumulate_predictions(
             preds,
             batch["labels"],
             batch["video_infos"],
             batch["frame_is_labelled"])
-        return {'dt': dt_dic, 'gt': gt_dic}
+        return {'loss': loss.item(), 'dt': dt_dic, 'gt': gt_dic}
 
     def validation_epoch_end(self, validation_step_outputs) :
-        avg_loss = torch.mean(torch.tensor([elt['val_loss'] for elt in validation_step_outputs]))
+        avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in validation_step_outputs]))
         self.log('avg_val_loss', avg_loss)
+        self.inference_epoch_end(validation_step_outputs)
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
@@ -157,9 +160,6 @@ class DetectionModel(pl.LightningModule) :
                 assert video_info.start_ts == 0
                 ts = tbin_start + t * video_info.delta_t
 
-                if ts < self.hparams.skip_us:
-                    continue
-
                 if isinstance(gt_boxes, torch.Tensor):
                     gt_boxes = gt_boxes.cpu().numpy()
                 if gt_boxes.dtype.isbuiltin:
@@ -169,7 +169,7 @@ class DetectionModel(pl.LightningModule) :
                 # Targets are timed
                 # Targets timestamped before 0.5s are skipped
                 # Labels are in range(1, C) (0 is background) (not in 0, C-1, where 0 would be first class)
-                if pred['boxes'] is not None and len(pred['boxes']) > 0:
+                if len(pred['scores']):
                     boxes = pred['boxes'].cpu().data.numpy()
                     labels = pred['labels'].cpu().data.numpy()
                     scores = pred['scores'].cpu().data.numpy()

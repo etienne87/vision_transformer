@@ -43,7 +43,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         ckpt = None
     
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, save_top_k=-1, period=5) 
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, period=1) 
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),

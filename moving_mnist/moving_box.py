@@ -233,9 +233,9 @@ class Animation(object):
         self.max_stop = max_stop
         self.max_classes = max_classes
         self.max_objects = max_objects
-        self.num_objects = np.random.randint(1, max_objects + 1)
+        self.num_objects = 1 #np.random.randint(1, max_objects + 1)
         self.objects = []
-        self.label_offset = 1
+        self.label_offset = 0
         self.t = 0
         self.img = None
         for i in range(self.num_objects):

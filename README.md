@@ -1,4 +1,4 @@
-# tracking_transformer
-Explore transformer for tracking and segmentation
+# vision transformer
+Explore transformer for detection, segmentation, tracking ...
 (no convolutions were harmed during the making of this repo)
 

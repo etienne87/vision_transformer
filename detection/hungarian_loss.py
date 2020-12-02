@@ -33,6 +33,35 @@ class HungarianMatcher(nn.Module):
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
     @torch.no_grad()
+    def my_forward(self, outputs, targets):
+        """My code, this is just to understand better the cost computation
+        I thought perhaps this would be 
+        """
+        bs, num_queries = outputs["pred_logits"].shape[:2]
+
+        # We flatten to compute the cost matrices in a batch
+        out_prob = outputs["pred_logits"].softmax(-1)  # [batch_size, num_queries, num_classes]
+        out_bbox = outputs["pred_boxes"]    # [batch_size, num_queries, 4]
+
+        # We will form batch_size costs of shape [num_queries, num_gt]
+        costs = [] 
+        for i in range(bs):
+            tgt_id = targets[i]["labels"]
+            cost_class = -out_prob[i,:, tgt_id]
+
+            tgt_bbox = targets[i]["boxes"]
+            cost_bbox = torch.cdist(out_bbox[i], tgt_bbox, p=1)
+
+            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox[i]), box_cxcywh_to_xyxy(tgt_bbox))
+
+            cost = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
+            cost = cost.cpu()
+            costs.append(cost)
+
+        indices = [linear_sum_assignment(cost) for cost in costs] 
+        return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+
+    @torch.no_grad()
     def forward(self, outputs, targets):
         """ Performs the matching
         Params:
@@ -64,7 +93,6 @@ class HungarianMatcher(nn.Module):
         # but approximate it in 1 - proba[target class].
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
         cost_class = -out_prob[:, tgt_ids]
-
 
         # Compute the L1 cost between boxes
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)

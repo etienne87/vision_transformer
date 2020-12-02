@@ -228,12 +228,13 @@ class Animation(object):
         max_objects: maximum number of objects
     """
 
-    def __init__(self, height, width, channels, max_stop=15, max_classes=1, max_objects=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.05):
+    def __init__(self, height, width, channels, max_stop=15, max_classes=1, min_objects=1, max_objects=3, max_speed_t=10, min_speed_s=0.01, max_speed_s=0.05):
         self.height, self.width, self.channels = height, width, channels
         self.max_stop = max_stop
         self.max_classes = max_classes
+        self.min_objects = max(1, min_objects)
         self.max_objects = max_objects
-        self.num_objects = 1 #np.random.randint(1, max_objects + 1)
+        self.num_objects = np.random.randint(min_objects, max_objects + 1)
         self.objects = []
         self.label_offset = 0
         self.t = 0
@@ -248,7 +249,7 @@ class Animation(object):
 
     def reset(self):
         self.objects = []
-        self.num_objects = np.random.randint(1, self.max_objects + 1) #fixme do not commit
+        self.num_objects = np.random.randint(self.min_objects, self.max_objects + 1) #fixme do not commit
         self.img = np.zeros((self.height, self.width, self.channels), dtype=np.float32)
         for i in range(self.num_objects):
             self.objects += [MovingSquare(self.height, self.width, self.max_stop,

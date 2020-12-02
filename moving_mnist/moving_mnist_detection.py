@@ -47,7 +47,7 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-                 max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist_data"):
+                 min_objects=1, max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist_data", colorized=True):
         self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
@@ -59,12 +59,18 @@ class MovingMnist(toy.Animation):
         max_classes = 10
         random_name = str(uuid.uuid4())
         self.video_info = FileMetadata(random_name, 50000 * max_frames_per_video, 50000, tbins)
-        super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, max_objects)
+        self.colorized = colorized
+        self.colormap = cv2.applyColorMap(np.array([i for i in range(255)], dtype=np.uint8), cv2.COLORMAP_HSV)
+        self.colormap[0] = 0
+        super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, min_objects, max_objects)
         self.label_offset = 0
 
     def reset(self):
         super(MovingMnist, self).reset()
         self.steps = 0
+        self.ids = [i for i in range(255)]
+        np.random.shuffle(self.ids)
+        self.ids = self.ids[:len(self.objects)]
         for i in range(len(self.objects)):
             idx = np.random.randint(0, len(self.dataset_))
             x, y = self.dataset_[idx]
@@ -76,7 +82,16 @@ class MovingMnist(toy.Animation):
             y, x = np.where(abs_img > 0.45)
             x1, x2 = np.min(x), np.max(x)
             y1, y2 = np.min(y), np.max(y)
-            self.objects[i].img = np.repeat(img[y1:y2, x1:x2][...,None], self.channels, 2)
+            # choose a random color
+            id = self.ids[i]
+            img = img[y1:y2, x1:x2]
+            img = (img >= 0.1) * id + (img < 0.1) * 0
+            labelrgb = self.colormap[img][:,:,0,:]
+            labelrgb = labelrgb / 255.0
+            if self.colorized:
+                self.objects[i].img = labelrgb
+            else:
+                self.objects[i].img = np.repeat(img[y1:y2, x1:x2][...,None], self.channels, 2)
 
     def step(self):
         self.img[...] = 0
@@ -148,7 +163,7 @@ class MovingMNISTDetDataset(MultiStreamDataLoader):
 
 
 def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256,
-                      max_frames_per_video=100, max_frames_per_epoch=1000, max_objects=2, train=True):
+                      max_frames_per_video=100, max_frames_per_epoch=1000, min_objects=1, max_objects=2, train=True):
     """Creates the dataloader for moving mnist
 
     Args:
@@ -167,7 +182,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     dummy_list = list(range(n))
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, max_objects=max_objects, train=True)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, min_objects=min_objects, max_objects=max_objects, train=True)
     dataset = MovingMNISTDetDataset(datasets, collate_fn, parallel=parallel)
     dataset.label_map = [str(i) for i in range(10)]
 

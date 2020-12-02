@@ -85,7 +85,7 @@ class DetectionModel(pl.LightningModule) :
         self.log('train_loss', loss.item())
         return {'loss': loss}
         
-    def validation_step(self, batch, batch_nb):
+    def inference_step(self, batch, batch_nb):
         with torch.no_grad():
             out, loss, loss_dict = self.get_loss(batch, batch_nb)
         for key in self.weight_dict.keys():
@@ -101,8 +101,24 @@ class DetectionModel(pl.LightningModule) :
             batch["frame_is_labelled"])
         return {'loss': loss.item(), 'dt': dt_dic, 'gt': gt_dic}
 
-    def validation_epoch_end(self, validation_step_outputs) :
-        avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in validation_step_outputs]))
+    def validation_step(self, batch, batch_nb):
+        return self.inference_step(batch, batch_nb)
+
+    def test_step(self, batch, batch_nb):
+        return self.inference_step(batch, batch_nb)
+
+    def validation_epoch_end(self, outputs):
+        avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in outputs]))
+        self.log('avg_val_loss', avg_loss)
+        return self.inference_epoch_end(outputs, 'val')
+
+    def test_epoch_end(self, outputs):
+        avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in outputs]))
+        self.log('avg_test_loss', avg_loss)
+        return self.inference_epoch_end(outputs, 'test')
+
+    def inference_epoch_end(self, outputs) :
+        avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in outputs]))
         self.log('avg_val_loss', avg_loss)
         self.inference_epoch_end(validation_step_outputs)
 

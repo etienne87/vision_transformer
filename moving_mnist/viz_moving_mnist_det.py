@@ -12,7 +12,7 @@ from moving_mnist_detection import make_moving_mnist
 
 
 def show_mnist_det(tbins=10, num_workers=1, batch_size=8, height=128, width=128, min_objects=1, max_objects=2, delay=5):
-    dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height, width, 10, max_frames_per_epoch=10000, min_objects=min_objects, max_objects=max_objects)
+    dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height, width, 10, max_frames_per_epoch=10000, min_objects=min_objects, max_objects=max_objects, train=False)
     show_batchsize = batch_size 
 
     start = 0

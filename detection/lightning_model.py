@@ -1,5 +1,5 @@
 """
-Lightning-model for semantic segmentation
+Lightning-model for detection 
 """
 import torch
 import torch.nn as nn
@@ -19,6 +19,7 @@ from detection.hungarian_loss import HungarianMatcher, SetCriterion
 from detection.utils import normalize, filter_outliers
 from detection.box_ops import box_xyxy_to_cxcywh
 from detection.post_process import PostProcess
+from detection.coco_eval import coco_evaluation
 from data import box_api
 
 from types import SimpleNamespace
@@ -53,9 +54,14 @@ class DetectionModel(pl.LightningModule) :
     def get_boxes(self, batch, score_thresh):
         t, b, _, h, w = batch['inputs'].shape
         out = self._inference(batch)
+        return self.get_boxes_from_network_output(out, score_thresh)
+
+    @torch.no_grad
+    def get_boxes_from_network_output(self, out, score_thresh):
         batch_size = len(out['pred_logits'])
         target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(batch['inputs'])
         boxes = self.post_process(out, target_sizes, score_thresh) 
+        # we fold the flatten list
         boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
         return boxes_txn
 
@@ -79,12 +85,19 @@ class DetectionModel(pl.LightningModule) :
         
     def validation_step(self, batch, batch_nb):
         with torch.no_grad():
-            out, loss, loss_dict = self.get_loss(batch, batch_nb)
+            preds, loss, loss_dict = self.get_loss(batch, batch_nb)
         for key in self.weight_dict.keys():
             self.log('train_loss_'+key, loss_dict[key])
         self.log('val_loss', loss.item())
-        #TODO
-        #self.accumulate_results(out)
+
+        # accumulate results for meanAP measurement
+        preds = self.get_boxes_from_network_output(out, score_thresh=0.05)
+        dt_dic, gt_dic = self.accumulate_predictions(
+            preds,
+            batch["labels"],
+            batch["video_infos"],
+            batch["frame_is_labelled"])
+        return {'dt': dt_dic, 'gt': gt_dic}
 
     def validation_epoch_end(self, validation_step_outputs) :
         avg_loss = torch.mean(torch.tensor([elt['val_loss'] for elt in validation_step_outputs]))
@@ -94,6 +107,85 @@ class DetectionModel(pl.LightningModule) :
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return [opt], [sch]
+
+    def inference_epoch_end(self, outputs, mode='val'):
+        """
+        Runs Metrics
+
+        Args:
+            outputs: accumulated outputs
+            mode: 'val' or 'test'
+        """
+        print('==> Start evaluation')
+        # merge all dictionaries
+        dt_detections = defaultdict(list)
+        gt_detections = defaultdict(list)
+        for item in outputs:
+            for k, v in item['gt'].items():
+                gt_detections[k].extend(v)
+            for k, v in item['dt'].items():
+                dt_detections[k].extend(v)
+
+        dt_dec = list(chain.from_iterable([dt_detections[v] for v in dt_detections]))
+        gt_dec = list(chain.from_iterable([gt_detections[v] for v in gt_detections]))
+        coco_kpi = coco_evaluation(gt_dec, dt_dec, self.hparams.height, self.hparams.width, self.label_map)
+
+        for k, v in coco_kpi.items():
+            print(k, ': ', v)
+            self.log('coco_metrics/{}'.format(k), v)
+
+        self.log(mode + '_acc', coco_kpi['mean_ap'])
+
+    def accumulate_predictions(self, preds, targets, video_infos, frame_is_labelled):
+        """
+        Accumulates prediction to run coco-metrics on the full videos
+        """
+        dt_detections = defaultdict(list)
+        gt_detections = defaultdict(list)
+        for t in range(len(targets)):
+            for i in range(len(targets[t])):
+                gt_boxes = targets[t][i]
+                pred = preds[t][i]
+
+                video_info, tbin_start, _ = video_infos[i]
+
+                # skipping when padding or the frame is not labelled
+                if video_info.padding or frame_is_labelled[t, i] == False:
+                    continue
+
+                name = video_info.path
+                assert video_info.start_ts == 0
+                ts = tbin_start + t * video_info.delta_t
+
+                if ts < self.hparams.skip_us:
+                    continue
+
+                if isinstance(gt_boxes, torch.Tensor):
+                    gt_boxes = gt_boxes.cpu().numpy()
+                if gt_boxes.dtype.isbuiltin:
+                    gt_boxes = box_api.box_vectors_to_bboxes(gt_boxes[:,:4], gt_boxes[:,4], ts=ts)
+
+
+                # Targets are timed
+                # Targets timestamped before 0.5s are skipped
+                # Labels are in range(1, C) (0 is background) (not in 0, C-1, where 0 would be first class)
+                if pred['boxes'] is not None and len(pred['boxes']) > 0:
+                    boxes = pred['boxes'].cpu().data.numpy()
+                    labels = pred['labels'].cpu().data.numpy()
+                    scores = pred['scores'].cpu().data.numpy()
+                    dt_boxes = box_api.box_vectors_to_bboxes(boxes, labels, scores, ts=ts)
+                    dt_detections[name].append(dt_boxes)
+                else:
+                    dt_detections[name].append(np.zeros((0), dtype=EventBbox))
+
+                if len(gt_boxes):
+                    gt_boxes["t"] = ts
+                    gt_detections[name].append(gt_boxes)
+                else:
+                    gt_detections[name].append(np.zeros((0), dtype=EventBbox))
+
+
+        return dt_detections, gt_detections
   
     @torch.no_grad()
     def demo_video(self, dataloader, num_batches=10000, show_video=False):

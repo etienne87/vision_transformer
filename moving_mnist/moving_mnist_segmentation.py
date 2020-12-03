@@ -178,7 +178,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     dummy_list = [i for i in range(n)]
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=True, min_objects=min_objects, max_objects=max_objects, colorization_problem=colorization_problem)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=train, min_objects=min_objects, max_objects=max_objects, colorization_problem=colorization_problem)
     dataset = MovingMNISTSegDataset(datasets, collate_fn, parallel=parallel)
 
     return dataset, ['background']+[str(i) for i in range(10)]

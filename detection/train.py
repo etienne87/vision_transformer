@@ -14,8 +14,8 @@ import arch
 
 
 def get_model(model_name, num_layers=3):
-    model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers, dropout=0.0)
-    if model_name == 'ViT' or model_name == 'DetViT':
+    model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers)
+    if model_name == 'ViT' or model_name == 'DetViT' or model_name == 'CNN4':
         model = SequenceWise(model)
     return model
 

@@ -29,8 +29,10 @@ class DetViT(nn.Module):
 
         # self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
 
-        # NOT WORKING AT ALL!!!! => WHAT IS GOING ON
-        self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
+        # Requires smaller learning rate
+        # self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
+
+        # self.pool = lambda x:x
 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)
         self.decoder = Transformer(embedding_dim, 1, num_heads, hidden_dim, dropout)
@@ -45,7 +47,7 @@ class DetViT(nn.Module):
         x = self.position_encoding(x)
 
         x = self.encoder(x)
-        x = self.pool(x)
+        #x = self.pool(x)
         x = self.decoder(x)
         y = self.linear_decoding(x)
         return y

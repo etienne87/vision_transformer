@@ -33,8 +33,13 @@ def filter_outliers(input_val, num_std=3):
 
 def search_latest_checkpoint(log_dir):
     """looks for latest checkpoint in latest sub-directory"""
+    def get_epoch(x):
+        epoch = x.split('epoch=')[1].split('.ckpt')[0]
+        return int(epoch)
     vdir = os.path.join(log_dir, 'checkpoints')
-    ckpt = sorted(glob.glob(vdir + '/*.ckpt'))[-1]
+    files = glob.glob(vdir + '/*.ckpt')
+    files = sorted(files, key=lambda x:get_epoch(x))
+    ckpt = files[-1]
     return ckpt
 
 

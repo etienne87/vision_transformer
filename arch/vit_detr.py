@@ -15,7 +15,7 @@ from einops import rearrange
 
 
 class DetViT(nn.Module):
-    def __init__(self, in_channels, out_channels, patch_dim=16, num_layers=2, num_heads=32, num_queries=4, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+    def __init__(self, in_channels, out_channels, patch_dim=16, num_layers=2, num_heads=16, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
         super().__init__()
 
         self.patch_dim = patch_dim
@@ -24,18 +24,18 @@ class DetViT(nn.Module):
         self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
 
         self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
-        self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
-        # self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        #self.position_encoding = FixedPositionalEncoding(max_len, embedding_dim)
+        # self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
-        # self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
+        self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
 
         # Requires smaller learning rate
         # self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
-
         # self.pool = lambda x:x
 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)
-        self.decoder = Transformer(embedding_dim, 1, num_heads, hidden_dim, dropout)
+        self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
 
 
     def forward(self, x):
@@ -47,7 +47,7 @@ class DetViT(nn.Module):
         x = self.position_encoding(x)
 
         x = self.encoder(x)
-        #x = self.pool(x)
+        x = self.pool(x)
         x = self.decoder(x)
         y = self.linear_decoding(x)
         return y

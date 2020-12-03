@@ -61,10 +61,10 @@ def train(train_dir, resume=False, max_epochs=10):
     params = argparse.Namespace(**locals())
     model = Model(params)
 
-    #train_dl = MyDataLoader([i for i in range(10)], Dataset, 4, 2) 
-    #val_dl = MyDataLoader([i for i in range(10)], Dataset, 4, 2) 
-    train_dl = torch.utils.data.DataLoader(Dataset(0), batch_size=32, num_workers=2)
-    val_dl = torch.utils.data.DataLoader(Dataset(0), batch_size=32, num_workers=2)
+    train_dl = MyDataLoader([i for i in range(10)], Dataset, 4, 2) 
+    val_dl = MyDataLoader([i for i in range(10)], Dataset, 4, 2) 
+    #train_dl = torch.utils.data.DataLoader(Dataset(0), batch_size=32, num_workers=2)
+    #val_dl = torch.utils.data.DataLoader(Dataset(0), batch_size=32, num_workers=2)
 
     if resume:
         ckpt = search_latest_checkpoint(train_dir)
@@ -72,7 +72,7 @@ def train(train_dir, resume=False, max_epochs=10):
         ckpt = None
 
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='toto#{epoch}', period=1) 
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='toto#{epoch}', save_top_k=None, period=1) 
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),

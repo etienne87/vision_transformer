@@ -14,8 +14,11 @@ import arch
 
 
 def get_model(model_name, num_layers=3):
-    model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers)
-    if model_name == 'ViT' or model_name == 'DetViT' or model_name == 'CNN4':
+    if model_name == 'UnetConv':
+        model = getattr(arch, model_name)(3, 11 + 4, num_layers_enc=4, num_layers_dec=2)
+    else:
+        model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers)
+    if model_name == 'ViT' or model_name == 'DetViT' or model_name == 'CNN4' or model_name == 'UnetConv':
         model = SequenceWise(model)
     return model
 

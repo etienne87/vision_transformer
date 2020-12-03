@@ -28,7 +28,7 @@ from itertools import chain
         
 class MultiStreamDataset(IterableDataset):
     '''The class simply iterates several python iterators.
-    Here the iterators are partitioned into a balanced partition.
+    Here the iterators are *not* partitioned into a balanced partition.
     One can change this to simply go through randomly over the entire dataset like in
     (1)
     
@@ -38,36 +38,54 @@ class MultiStreamDataset(IterableDataset):
         batch_size: number of streams
         stream_kwargs: user's class ctor arguments
     '''
-    def __init__(self, stream_list, streamer, batch_size=4, **stream_kwargs):
+    def __init__(self, stream_list, streamer, batch_size=4, partition=False, **stream_kwargs):
         self.stream_list = stream_list
         self.batch_size = batch_size
         self.streamer = streamer
         self.stream_kwargs = stream_kwargs
+        self.partition = partition
 
-    def open_stream(self, data):
-        stream = self.streamer(data, **self.stream_kwargs)
-        return iter(stream)
+    @property
+    def shuffled_data_list(self):
+        return random.sample(self.stream_list, len(self.stream_list))
 
     def chain_streamers(self, data_list):
-        random.shuffle(data_list)
         streamers = iter(self.streamer(data, **self.stream_kwargs) for data in data_list)
         return chain.from_iterable(streamers)
 
     def __iter__(self):
-        # here we create equal partitions
-        chunk_size = len(self.stream_list) // self.batch_size 
-        self.stream_list = random.sample(self.stream_list, len(self.stream_list)) 
+        return self.iter_partition() if self.partition else self.iter_random()
+
+    def iter_random(self):
+        return zip(*[self.chain_streamers(self.shuffled_data_list) for i in range(self.batch_size)]) 
+
+    def iter_partition(self):
+        stream_list = random.sample(self.stream_list, len(self.stream_list)) +\
+                      random.choices(self.stream_list,k=self.batch_size-len(self.stream_list)%self.batch_size)
+        chunk_size = len(stream_list) // self.batch_size
         return zip(
-                *[self.chain_streamers(self.stream_list[i*chunk_size:(i+1)*chunk_size]) for i in range(self.batch_size)]
+            *[self.chain_streamers(stream_list[i*chunk_size:(i+1)*chunk_size]) for i in range(self.batch_size)]
         )
         
     @classmethod
-    def split_datasets(cls, stream_list, batch_size, max_workers, streamer, **stream_kwargs):
+    def make_datasets(cls, stream_list, batch_size, max_workers, streamer, **stream_kwargs):
         max_workers = max(1, max_workers)
         for n in range(max_workers, 0, -1):
             if batch_size % n == 0:
                 num_workers = n
                 break
+        split_size = batch_size // num_workers
+        out = [cls(stream_list, streamer, split_size, **stream_kwargs) for _ in range(num_workers)]
+        return out
+    
+    @classmethod
+    def split_datasets(cls, stream_list, batch_size, max_workers, streamer, **stream_kwargs):
+        max_workers = min(len(stream_list), max(1, max_workers))
+        for n in range(max_workers, 0, -1):
+            if batch_size % n == 0:
+                num_workers = n
+                break
+        print('using',num_workers,'workers')
         #here we partition the original data_list.
         split_size = batch_size // num_workers
         num_files_per_worker = len(stream_list) // num_workers
@@ -75,9 +93,13 @@ class MultiStreamDataset(IterableDataset):
         for i in range(num_workers):
             start = i * num_files_per_worker
             end = (i + 1) * num_files_per_worker
-            stream_files = stream_list[start:end]
+            if i == num_workers-1:
+                stream_files = stream_list[start:]
+            else:
+                stream_files = stream_list[start:end]
             item = cls(stream_files, streamer=streamer, batch_size=split_size, **stream_kwargs)
             out.append(item)
+
         return out
 
 

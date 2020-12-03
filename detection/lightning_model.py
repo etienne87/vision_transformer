@@ -27,6 +27,7 @@ from itertools import chain, islice
 from torchvision.utils import make_grid
 from collections import defaultdict
 
+from detection.utils import cuda_time
 
         
 class DetectionModel(pl.LightningModule) :
@@ -43,6 +44,7 @@ class DetectionModel(pl.LightningModule) :
         self.criterion = SetCriterion(self.num_classes, matcher, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
         self.post_process = PostProcess()
 
+    #@cuda_time
     def _inference(self, batch):
         x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
         if hasattr(self.model, "reset"):
@@ -67,6 +69,7 @@ class DetectionModel(pl.LightningModule) :
         boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
         return boxes_txn
 
+    #@cuda_time
     def get_loss(self, batch, batch_nb):
         h, w = batch['inputs'].shape[-2:]
         scale_factor = torch.tensor([1./w, 1./h, 1./w, 1./h]).type_as(batch['inputs'])
@@ -108,6 +111,7 @@ class DetectionModel(pl.LightningModule) :
         return self.inference_step(batch, batch_nb)
 
     def validation_epoch_end(self, outputs):
+        print('\n-- validation epoch end --')
         avg_loss = torch.mean(torch.tensor([elt['loss'] for elt in outputs]))
         self.log('avg_val_loss', avg_loss)
         return self.inference_epoch_end(outputs, 'val')
@@ -124,9 +128,8 @@ class DetectionModel(pl.LightningModule) :
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
-        return opt
-        # sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        # return [opt], [sch]
+        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
+        return [opt], [sch]
 
     def inference_epoch_end(self, outputs, mode='val'):
         """

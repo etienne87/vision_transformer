@@ -23,7 +23,6 @@ def unet_layers(down_block, middle_block, up_block, input_size=5, down_filter_si
         middle_filter_size: bottleneck's channels
         up_fitler_sizes: decoder's channels
     """
-    assert len(down_filter_sizes) <= len(up_filter_sizes)
     encoders = []
     encoders_channels = [input_size]
     last_channels = input_size

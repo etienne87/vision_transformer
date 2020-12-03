@@ -44,7 +44,6 @@ class MovingMnist(toy.Animation):
         self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
-        self.label_offset = 1
         self.channels = channels
         self.steps = 0
         self.tbins = tbins
@@ -54,6 +53,7 @@ class MovingMnist(toy.Animation):
         self.label_img = np.zeros((height, width), dtype=np.uint8)
         self.colorization_problem = colorization_problem
         super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, min_objects, max_objects)
+        self.label_offset = 1
 
     def reset(self):
         super(MovingMnist, self).reset()
@@ -89,9 +89,10 @@ class MovingMnist(toy.Animation):
             thumbnail = thumbnail.mean(axis=2)
             mask_thumb = np.zeros((thumbnail.shape[0], thumbnail.shape[1]), dtype=np.uint8)
             if self.colorization_problem:
-                mask_thumb[thumbnail >= 0.5] = digit.id
+                print('fuuuuuck')
+                mask_thumb[thumbnail >= 0.1] = digit.id
             else:
-                mask_thumb[thumbnail >= 0.5] = digit.class_id + self.label_offset
+                mask_thumb[thumbnail >= 0.1] = digit.class_id + self.label_offset
             self.label_img[y1:y2, x1:x2] = mask_thumb * (mask_thumb > 0) + self.label_img[y1:y2, x1:x2] * (mask_thumb == 0)
             
         output = self.img 

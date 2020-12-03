@@ -20,7 +20,7 @@ from torchvision.utils import make_grid
 from kornia.utils import one_hot, mean_iou
 from kornia.losses import DiceLoss, dice_loss
 
-from segmentation.utils import normalize, filter_outliers
+from detection.utils import normalize, filter_outliers
 from core.temporal import time_to_batch
 
 import skvideo.io

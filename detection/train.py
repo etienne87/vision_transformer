@@ -47,7 +47,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         model.load_state_dict(checkpoint['state_dict'])
     
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, period=1) 
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='weights#{epoch}', save_top_k=None, period=1) 
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),

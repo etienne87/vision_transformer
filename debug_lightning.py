@@ -50,7 +50,7 @@ class Model(pl.LightningModule):
         return {'val_loss': loss}
 
     def validation_epoch_end(self, outputs):
-        print('val epoch end')
+        print('\n ---- val epoch end ---- \n')
         return {'val_loss': torch.mean(torch.stack([x['val_loss'] for x in outputs]))}
 
     def configure_optimizers(self):
@@ -72,7 +72,7 @@ def train(train_dir, resume=False, max_epochs=10):
         ckpt = None
 
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='toto#{epoch}', save_top_k=-1, period=1) 
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='toto#{epoch}', period=1) 
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),

@@ -28,10 +28,10 @@ class DetViT(nn.Module):
         # self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
         self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
-        self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
+        #self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
 
         # Requires smaller learning rate
-        # self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
+        self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
         # self.pool = lambda x:x
 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)

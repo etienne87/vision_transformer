@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class FixedPositionalEncoding(nn.Module):
-    def __init__(self, embedding_dim, max_length=5000):
+    def __init__(self, max_length, embedding_dim):
         super().__init__()
 
         pe = torch.zeros(max_length, embedding_dim)

@@ -24,7 +24,7 @@ def get_model(model_name, num_layers=3):
 
 
 def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=12, batch_size=64, num_classes=11, num_workers=2, max_frames_per_video=20,
-    demo_every=2,                                
+    demo_every=2, val_every=10, 
     max_frames_per_epoch=10000, val_max_frames_per_epoch=5000, min_objects=1, max_objects=2, precision=32, resume=False, just_val=False, just_demo=False,
     eos_coef=0.1, bbox_loss_coef=1, giou_loss_coef=1, cost_class=1, cost_bbox=5, cost_giou=2
     ):
@@ -64,7 +64,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     elif just_val:
         pl.Trainer().test(model, test_dataloaders=dm.val_dataloader())
     else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
+        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every)
         trainer.fit(model, dm)
 
   

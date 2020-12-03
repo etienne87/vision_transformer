@@ -176,13 +176,17 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
         max_frames_per_epoch: maximum frames per epoch
         train: use training part of MNIST dataset.
     """
+    if train:
+        print('DATALOADER IS IN TRAINING MODE')
+    else:
+        print('DATALOADER IS IN VALIDATION MODE')
     max_frames_per_video = max(max_frames_per_video, tbins)
     height, width, cin = height, width, 3
     n = max_frames_per_epoch // max_frames_per_video
     dummy_list = list(range(n))
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, min_objects=min_objects, max_objects=max_objects, train=True)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, min_objects=min_objects, max_objects=max_objects, train=train)
     dataset = MovingMNISTDetDataset(datasets, collate_fn, parallel=parallel)
     dataset.label_map = [str(i) for i in range(10)]
 

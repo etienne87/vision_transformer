@@ -128,8 +128,9 @@ class DetectionModel(pl.LightningModule) :
 
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
-        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        return [opt], [sch]
+        return opt
+        #sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
+        #return [opt], [sch]
 
     def inference_epoch_end(self, outputs, mode='val'):
         """

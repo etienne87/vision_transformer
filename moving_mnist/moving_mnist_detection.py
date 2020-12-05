@@ -52,7 +52,6 @@ class MovingMnist(toy.Animation):
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
         self.channels = channels
-        np.random.seed(idx)
         self.steps = 0
         self.tbins = tbins
         self.max_frames_per_video = max_frames_per_video

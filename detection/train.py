@@ -17,14 +17,14 @@ def get_model(model_name, num_layers=3):
     if model_name == 'UnetConv':
         model = getattr(arch, model_name)(3, 11 + 4, num_layers_enc=4, num_layers_dec=2)
     else:
-        model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers)
+        model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers, dropout=0.0)
     if model_name == 'ViT' or model_name == 'DetViT' or model_name == 'CNN4' or model_name == 'UnetConv':
         model = SequenceWise(model)
     return model
 
 
 def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, num_tbins=12, batch_size=64, num_classes=11, num_workers=2, max_frames_per_video=20,
-    demo_every=2, val_every=10, 
+    demo_every=2, val_every=1, 
     max_frames_per_epoch=10000, val_max_frames_per_epoch=5000, min_objects=1, max_objects=2, precision=32, resume=False, just_val=False, just_demo=False,
     eos_coef=0.1, bbox_loss_coef=1, giou_loss_coef=1, cost_class=1, cost_bbox=5, cost_giou=2
     ):
@@ -35,13 +35,14 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     """
 
     params = argparse.Namespace(**locals())
-    net = get_model(model_name)
+    net = get_model(model_name, num_layers)
 
     model = DetectionModel(net, params)
     dm = DetMNISTDataModule(params)
 
     if resume or just_demo or just_val:
         ckpt = search_latest_checkpoint(train_dir)
+        print("resume from: ", ckpt)
     else:
         ckpt = None
 

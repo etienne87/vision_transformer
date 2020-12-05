@@ -35,6 +35,32 @@ class SelfAttention(nn.Module):
         return out
 
 
+class FunnelLayer2d(nn.Module):
+    """
+    Funnel Transformer: https://arxiv.org/abs/2006.03236
+
+    Query-only Attention on pooled sequence
+
+    """
+    def __init__(self, dim, heads):
+        super().__init__()
+        self.attn_in = SelfAttention(dim, heads)
+
+    def forward(self, x):
+        h, w = x.shape[-2:]
+        q = f.avg_pool2d(x, 2, 2)
+
+        x = rearrange(x, 'b c h w -> b (h w) c')
+        q = rearrange(q, 'b c h w -> b (h w) c')
+        y = self.attn_in(q, x)
+        
+        y = rearrange(y, 'b (h w) c -> b c h w', h=h//2, w=w//2)
+        return y
+
+
+
+
+
 class QuerySetAttention(nn.Module):
     def __init__(self, num_queries, dim, heads):
         super().__init__()
@@ -42,9 +68,6 @@ class QuerySetAttention(nn.Module):
         nn.init.xavier_uniform_(self.queries)
         self.attn_in = SelfAttention(dim, heads)
         
-        #fixme: to remove
-        self.attn_out = SelfAttention(dim, heads)
-
     def forward(self, x):
         b = x.shape[0]
         q = self.queries.expand(b, -1, -1)

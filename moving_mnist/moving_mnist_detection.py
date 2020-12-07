@@ -126,7 +126,6 @@ def collate_fn(data_list):
         data_list: batch parts
     """
     batch, boxes, resets, video_infos = zip(*data_list)
-    print('part of batches: ', len(batch))
     batch = torch.cat([item[:, None] for item in batch], dim=1)
     batch = batch.permute(0,1,4,2,3).contiguous()
     t, n = batch.shape[:2]

@@ -16,7 +16,7 @@ from arch.cnn import CNN
 
 
 class DetViT(nn.Module):
-    def __init__(self, in_channels, out_channels, hybrid=True, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+    def __init__(self, in_channels, out_channels, hybrid=False, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
         super().__init__()
 
         self.patch_dim = patch_dim

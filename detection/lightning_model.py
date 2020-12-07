@@ -46,6 +46,7 @@ class DetectionModel(pl.LightningModule) :
 
     #@cuda_time
     def _inference(self, batch):
+        import pdb;pdb.set_trace()
         x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
         if hasattr(self.model, "reset"):
             self.model.reset(reset_mask)

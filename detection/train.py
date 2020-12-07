@@ -34,6 +34,9 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     Example: 
 
     >> python3 segmentation/train.py test_drive model_name --max_frames_per_video 16 --max_frames_per_epoch 50000 --height 64 --width 64
+
+    Last to have worked well:
+    >> python3 detection/train.py det_exps/vit_2d_pos_encoding_small_batches_accumulate DetViT --max_frames_per_epoch 200000 --height 128 --width 128 --tbins 1 --batch_size 32 --num_workers 0
     """
 
     params = argparse.Namespace(**locals())
@@ -67,7 +70,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     elif just_val:
         pl.Trainer().test(model, test_dataloaders=dm.val_dataloader())
     else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every, reload_dataloaders_every_epoch=True)
+        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every, reload_dataloaders_every_epoch=True, accumulate_grad_batches=8)
         trainer.fit(model, dm)
 
   

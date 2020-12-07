@@ -270,10 +270,13 @@ class DetectionModel(pl.LightningModule) :
 
                 if show_video:
                     cv2.imshow(window_name, grid)
-                    cv2.waitKey(5)
-
+                    key = cv2.waitKey(5)
 
                 out_video.writeFrame(grid[...,::-1])
+
+                if key == 27:
+                    break
+                
 
         if show_video:
             cv2.destroyWindow(window_name)

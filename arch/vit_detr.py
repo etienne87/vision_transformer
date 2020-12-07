@@ -8,6 +8,7 @@ import torch.nn.functional as f
 from core.transformer import Transformer
 from core.reversible_transformer import ReversibleTransformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from core.positional_encoding2d import PositionEmbeddingLearned, PositionEmbeddingSine
 from core.pooling import QuerySetAttention, SlotAttention, FunnelLayer2d
 from einops import rearrange
 
@@ -24,8 +25,9 @@ class DetViT(nn.Module):
         self.flatten_dim_in = patch_dim * patch_dim * in_channels
         self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
 
-        self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
+        #self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
         #self.position_encoding = FixedPositionalEncoding(max_len, embedding_dim)
+        self.position_encoding = PositionEmbeddingSine(embedding_dim//2)
         self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
         # self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
@@ -48,11 +50,16 @@ class DetViT(nn.Module):
 
         if hasattr(self, 'features'):
             x = self.features(x)
+            #you are missing position encoding!!!
         else:
             x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
             x = self.linear_encoding(x)
+        
+        #2d embedding
+        pos = self.position_encoding.forward(x, b, h//p, w//p)
+        pos = rearrange(pos, 'b c h w -> b (h w) c')
+        x += pos
 
-        x = self.position_encoding(x)
         x = self.encoder(x)
         x = self.pool(x)
         x = self.decoder(x)

@@ -12,10 +12,11 @@ from core.pooling import QuerySetAttention, SlotAttention, FunnelLayer2d
 from einops import rearrange
 
 
+from arch.cnn import CNN
 
 
 class DetViT(nn.Module):
-    def __init__(self, in_channels, out_channels, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+    def __init__(self, in_channels, out_channels, hybrid=True, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
         super().__init__()
 
         self.patch_dim = patch_dim
@@ -38,15 +39,20 @@ class DetViT(nn.Module):
         self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
         # self.decoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
+        if hybrid:
+            self.features = CNN(in_channels, embedding_dim, 3)
 
     def forward(self, x):
         b,c,h,w = x.shape
         p = self.patch_dim
 
-        x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
-        x = self.linear_encoding(x)
-        x = self.position_encoding(x)
+        if hasattr(self, 'features'):
+            x = self.features(x)
+        else:
+            x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
+            x = self.linear_encoding(x)
 
+        x = self.position_encoding(x)
         x = self.encoder(x)
         x = self.pool(x)
         x = self.decoder(x)

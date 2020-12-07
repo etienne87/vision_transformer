@@ -38,12 +38,14 @@ class MultiStreamDataset(IterableDataset):
         batch_size: number of streams
         stream_kwargs: user's class ctor arguments
     '''
-    def __init__(self, stream_list, streamer, batch_size=4, partition=False, **stream_kwargs):
+    def __init__(self, stream_list, streamer, batch_size=4, partition=False, random_seed=0, **stream_kwargs):
         self.stream_list = stream_list
         self.batch_size = batch_size
         self.streamer = streamer
         self.stream_kwargs = stream_kwargs
         self.partition = partition
+        self.seed = random_seed
+
 
     @property
     def shuffled_data_list(self):
@@ -54,6 +56,10 @@ class MultiStreamDataset(IterableDataset):
         return chain.from_iterable(streamers)
 
     def __iter__(self):
+        print("RANDOM SEED: ", self.seed)
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+        print(np.random.randint(10))
         return self.iter_partition() if self.partition else self.iter_random()
 
     def iter_random(self):
@@ -79,7 +85,7 @@ class MultiStreamDataset(IterableDataset):
         return out
     
     @classmethod
-    def split_datasets(cls, stream_list, batch_size, max_workers, streamer, **stream_kwargs):
+    def split_datasets(cls, stream_list, batch_size, max_workers, streamer, random_seed, **stream_kwargs):
         max_workers = min(len(stream_list), max(1, max_workers))
         for n in range(max_workers, 0, -1):
             if batch_size % n == 0:
@@ -97,7 +103,7 @@ class MultiStreamDataset(IterableDataset):
                 stream_files = stream_list[start:]
             else:
                 stream_files = stream_list[start:end]
-            item = cls(stream_files, streamer=streamer, batch_size=split_size, **stream_kwargs)
+            item = cls(stream_files, streamer=streamer, batch_size=split_size, random_seed=random_seed + i, **stream_kwargs)
             out.append(item)
 
         return out

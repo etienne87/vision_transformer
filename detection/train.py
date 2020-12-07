@@ -13,6 +13,8 @@ from core.temporal import SequenceWise
 import arch
 
 
+
+
 def get_model(model_name, num_layers=3):
     if model_name == 'UnetConv':
         model = getattr(arch, model_name)(3, 11 + 4, num_layers_enc=4, num_layers_dec=2)
@@ -65,7 +67,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     elif just_val:
         pl.Trainer().test(model, test_dataloaders=dm.val_dataloader())
     else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every)
+        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every, reload_dataloaders_every_epoch=True)
         trainer.fit(model, dm)
 
   

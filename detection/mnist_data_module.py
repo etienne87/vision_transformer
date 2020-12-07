@@ -10,6 +10,8 @@ import cv2
 from moving_mnist.moving_mnist_detection import make_moving_mnist
 from torchvision.utils import make_grid
 
+import numpy as np
+import random
 
 
 class DetMNISTDataModule(pl.LightningDataModule):

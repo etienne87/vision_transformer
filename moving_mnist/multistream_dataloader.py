@@ -56,10 +56,8 @@ class MultiStreamDataset(IterableDataset):
         return chain.from_iterable(streamers)
 
     def __iter__(self):
-        print("RANDOM SEED: ", self.seed)
         random.seed(self.seed)
         np.random.seed(self.seed)
-        print(np.random.randint(10))
         return self.iter_partition() if self.partition else self.iter_random()
 
     def iter_random(self):

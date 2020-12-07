@@ -21,9 +21,11 @@ class DetMNISTDataModule(pl.LightningDataModule):
         self.hparams = hparams
 
     def train_dataloader(self):
-        train_dataloader, _ = make_moving_mnist(train=True, min_objects=self.hparams.min_objects, max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.max_frames_per_epoch, num_workers=self.hparams.num_workers)
+        seed = random.randint(0, 100)
+        train_dataloader, _ = make_moving_mnist(train=True, min_objects=self.hparams.min_objects, max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.max_frames_per_epoch, num_workers=self.hparams.num_workers, random_seed=seed)
         return train_dataloader   
         
     def val_dataloader(self):
-        dataloader, _ = make_moving_mnist(train=False, min_objects=self.hparams.min_objects, max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.val_max_frames_per_epoch, num_workers=self.hparams.num_workers)
+        seed = random.randint(0, 100)
+        dataloader, _ = make_moving_mnist(train=False, min_objects=self.hparams.min_objects, max_objects=self.hparams.max_objects,height=self.hparams.height,width=self.hparams.width,tbins=self.hparams.num_tbins, max_frames_per_video=self.hparams.max_frames_per_video, max_frames_per_epoch=self.hparams.val_max_frames_per_epoch, num_workers=self.hparams.num_workers, random_seed=seed)
         return dataloader 

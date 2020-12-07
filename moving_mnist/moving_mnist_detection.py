@@ -19,6 +19,13 @@ from moving_mnist.multistream_dataloader import MultiStreamDataLoader, MultiStre
 from torchvision import datasets, transforms
 from functools import partial
 
+TRAIN_DATASET = datasets.MNIST('/tmp/mnist', train=True, download=True,
+                                       transform=transforms.Compose([transforms.ToTensor(),
+                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
+VAL_DATASET = datasets.MNIST('/tmp/mnist', train=False, download=True,
+                                       transform=transforms.Compose([transforms.ToTensor(),
+                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
+
 
 class FileMetadata(object):
     """Video Infos
@@ -48,9 +55,7 @@ class MovingMnist(toy.Animation):
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
                  min_objects=1, max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist_data", colorized=True):
-        self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
-                                       transform=transforms.Compose([transforms.ToTensor(),
-                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
+        self.train = train
         self.channels = channels
         self.steps = 0
         self.tbins = tbins
@@ -66,13 +71,14 @@ class MovingMnist(toy.Animation):
 
     def reset(self):
         super(MovingMnist, self).reset()
+        dataset = TRAIN_DATASET if self.train else VAL_DATASET 
         self.steps = 0
         self.ids = [i for i in range(255)]
         np.random.shuffle(self.ids)
         self.ids = self.ids[:len(self.objects)]
         for i in range(len(self.objects)):
-            idx = np.random.randint(0, len(self.dataset_))
-            x, y = self.dataset_[idx]
+            idx = np.random.randint(0, len(dataset))
+            x, y = dataset[idx]
             self.objects[i].class_id = y
             self.objects[i].idx = idx
             img = x.numpy()[0]

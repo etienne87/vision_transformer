@@ -4,6 +4,7 @@ Toy Problem visualization
 import sys
 import time
 import numpy as np
+import random
 import cv2
 
 from data import box_api
@@ -44,8 +45,10 @@ def show_mnist_det(tbins=10, num_workers=1, batch_size=8, height=128, width=128,
 
 def debug_seeds():
     for i in range(5):
+        random.seed(i)
+        np.random.seed(i)
         print('ITER#', i)
-        show_mnist_det(1, 1, 1, 128, 128, 1, 1, 10, 10, 0)
+        show_mnist_det(1, 1, 1, 128, 128, 1, 1, 10, 100, 0)
         print('END')
 
 

@@ -116,7 +116,6 @@ class MultiStreamDataLoader:
         dataloader's num_workers is set to 1.
     '''
     def __init__(self, datasets, collate_fn, parallel=True):
-        random.seed(time.time())
         self.datasets = datasets
         self.collate_fn = collate_fn
         self.parallel = parallel

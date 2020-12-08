@@ -42,15 +42,14 @@ class DetViT(nn.Module):
         # self.decoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         if hybrid:
-            self.features = CNN(in_channels, embedding_dim, 3)
+            self.cnn_features = CNN(in_channels, embedding_dim, 3)
 
     def forward(self, x):
         b,c,h,w = x.shape
         p = self.patch_dim
 
-        if hasattr(self, 'features'):
-            x = self.features(x)
-            #you are missing position encoding!!!
+        if hasattr(self, 'cnn_features'):
+            x = self.cnn_features(x)
         else:
             x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
             x = self.linear_encoding(x)

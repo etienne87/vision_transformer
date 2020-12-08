@@ -35,6 +35,15 @@ class Residual(nn.Module):
     def forward(self, x, **kwargs):
         return self.fn(x, **kwargs) + x
 
+class ReZero(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+        self.scale = nn.Parameter(torch.zeros((1,), dtype=torch.float32))
+
+    def forward(self, x, **kwargs):
+        return self.fn(x, **kwargs) * self.scale + x
+
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -125,15 +134,25 @@ class TransformerAA(nn.Module):
         return x
 
 
+
 class Transformer(nn.Module):
     def __init__(self, dim, depth, heads, mlp_dim, dropout):
         super().__init__()
         self.layers = nn.ModuleList([])
+        #ReZero
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                Residual(PreNorm(dim, Attention(dim, heads = heads, dropout = dropout))),
-                Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
-            ]))
+                ReZero(Attention(dim, heads=heads, dropout=dropout)),
+                ReZero(FeedForward(dim, mlp_dim, dropout=dropout))
+                ]))
+
+        #PreNorm
+        # for _ in range(depth):
+        #     self.layers.append(nn.ModuleList([
+        #         Residual(PreNorm(dim, Attention(dim, heads = heads, dropout = dropout))),
+        #         Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
+        #     ]))
+
     def forward(self, x, mask = None):
         for attn, ff in self.layers:
             x = attn(x, mask = mask)

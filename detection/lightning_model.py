@@ -9,6 +9,7 @@ import torchvision
 
 import os
 import argparse
+import random
 import cv2
 import numpy as np
 import skvideo.io
@@ -43,6 +44,10 @@ class DetectionModel(pl.LightningModule) :
         matcher = HungarianMatcher(hparams.cost_class, hparams.cost_bbox, hparams.cost_giou)
         self.criterion = SetCriterion(self.num_classes, matcher, hparams.eos_coef, losses = ['labels', 'boxes', 'cardinality'])
         self.post_process = PostProcess()
+
+    def on_epoch_start(self):
+        np.random.seed(self.current_epoch)
+        random.seed(self.current_epoch)
 
     #@cuda_time
     def _inference(self, batch):
@@ -240,7 +245,7 @@ class DetectionModel(pl.LightningModule) :
             ncols = int(np.ceil(batch_size / nrows))
             grid = np.zeros((nrows * hparams.height, ncols * hparams.width, 3), dtype=np.uint8)
 
-            predictions = self.get_boxes(batch, score_thresh=0.5)
+            predictions = self.get_boxes(batch, score_thresh=0.1)
 
             for t in range(len(images)):
                 for i in range(len(images[0])):

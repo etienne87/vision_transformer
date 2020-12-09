@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
-from core.transformer import Transformer
+from core.transformer import Transformer 
 from core.reversible_transformer import ReversibleTransformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
 from core.positional_encoding2d import PositionEmbeddingLearned, PositionEmbeddingSine
@@ -44,6 +44,8 @@ class DetViT(nn.Module):
         if hybrid:
             self.cnn_features = CNN(in_channels, embedding_dim, 3)
 
+        self.norm = nn.LayerNorm(embedding_dim)
+
     def forward(self, x):
         b,c,h,w = x.shape
         p = self.patch_dim
@@ -53,6 +55,8 @@ class DetViT(nn.Module):
         else:
             x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
             x = self.linear_encoding(x)
+
+        x = self.norm(x)
         
         #2d embedding
         pos = self.position_encoding.forward(x, b, h//p, w//p)

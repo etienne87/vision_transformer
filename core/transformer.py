@@ -117,7 +117,7 @@ class Attention(nn.Module):
         return out
 
 
-class TransformerAA(nn.Module):
+class TransformerAN(nn.Module):
     """all normalization"""
     def __init__(self, dim, depth, heads, mlp_dim, dropout):
         super().__init__()
@@ -134,24 +134,23 @@ class TransformerAA(nn.Module):
         return x
 
 
-
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, mlp_dim, dropout):
+    def __init__(self, dim, depth, heads, mlp_dim, dropout, rezero=True):
         super().__init__()
         self.layers = nn.ModuleList([])
         #ReZero
         for _ in range(depth):
-            self.layers.append(nn.ModuleList([
-                ReZero(Attention(dim, heads=heads, dropout=dropout)),
-                ReZero(FeedForward(dim, mlp_dim, dropout=dropout))
-                ]))
-
-        #PreNorm
-        # for _ in range(depth):
-        #     self.layers.append(nn.ModuleList([
-        #         Residual(PreNorm(dim, Attention(dim, heads = heads, dropout = dropout))),
-        #         Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
-        #     ]))
+            if rezero:
+                self.layers.append(nn.ModuleList([
+                        ReZero(Attention(dim, heads=heads, dropout=dropout)),
+                        ReZero(FeedForward(dim, mlp_dim, dropout=dropout))
+                    ]))
+            else:
+                for _ in range(depth):
+                    self.layers.append(nn.ModuleList([
+                        Residual(PreNorm(dim, Attention(dim, heads = heads, dropout = dropout))),
+                        Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
+                    ]))
 
     def forward(self, x, mask = None):
         for attn, ff in self.layers:
@@ -160,3 +159,11 @@ class Transformer(nn.Module):
         return x
 
 
+if __name__ == '__main__':
+
+    b,n,c = 3,50,32
+    x = torch.randn(b,n,c)
+    net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.) 
+    net = AllAttention(dim=c, heads=8, dropout=0, normalize_fn=normalize, num_vectors=10) 
+    y = net(x)
+    print(y.shape)

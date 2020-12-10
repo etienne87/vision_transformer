@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 import torch.nn.functional as f
+from core.relative_embedding import RelativePositionBias
 
 
 def normalize(t, eps=1e-8):
@@ -81,7 +82,7 @@ class FeedForward(nn.Module):
     
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 8, dropout = 0., normalize_fn=lambda x:torch.nn.functional.softmax(x, dim=-1)):
+    def __init__(self, dim, heads = 8, dropout = 0., normalize_fn=lambda x:torch.nn.functional.softmax(x, dim=-1), rel_pos_embedding=False):
         super().__init__()
         self.heads = heads
         self.scale = dim ** -0.5
@@ -92,6 +93,9 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         )
         self.normalize_fn = normalize_fn
+        self.rel_pos_embedding = rel_pos_embedding
+        if rel_pos_embedding:
+            self.rpr = RelativePositionBias(heads=heads)
 
     def forward(self, x, mask = None):
         b, n, _, h = *x.shape, self.heads
@@ -99,6 +103,8 @@ class Attention(nn.Module):
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
 
         dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
+        if self.rel_pos_embedding:
+            dots = self.rpr(dots)
         mask_value = -torch.finfo(dots.dtype).max
 
         if mask is not None:
@@ -164,6 +170,5 @@ if __name__ == '__main__':
     b,n,c = 3,50,32
     x = torch.randn(b,n,c)
     net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.) 
-    net = AllAttention(dim=c, heads=8, dropout=0, normalize_fn=normalize, num_vectors=10) 
     y = net(x)
     print(y.shape)

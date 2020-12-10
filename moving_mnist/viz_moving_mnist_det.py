@@ -62,7 +62,7 @@ def debug_seeds():
 
 if __name__ == '__main__':
     import fire
-    fire.Fire()
+    fire.Fire(show_mnist_det)
    
 
 

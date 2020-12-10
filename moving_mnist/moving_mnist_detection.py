@@ -73,7 +73,7 @@ class MovingMnist(toy.Animation):
         super(MovingMnist, self).reset()
         dataset = TRAIN_DATASET if self.train else VAL_DATASET 
         self.steps = 0
-        self.ids = [i for i in range(255)]
+        self.ids = [i for i in range(1, 255)]
         np.random.shuffle(self.ids)
         self.ids = self.ids[:len(self.objects)]
         for i in range(len(self.objects)):
@@ -89,6 +89,7 @@ class MovingMnist(toy.Animation):
             y1, y2 = np.min(y), np.max(y)
             # choose a random color
             id = self.ids[i]
+            assert id > 0
             img = img[y1:y2, x1:x2]
             img = (img >= 0.1) * id + (img < 0.1) * 0
             labelrgb = self.colormap[img][:,:,0,:]

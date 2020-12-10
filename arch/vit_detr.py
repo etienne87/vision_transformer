@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
-from core.transformer import Transformer 
+from core.conv import ConvLayer
+from core.transformer import Transformer, ReZero
 from core.reversible_transformer import ReversibleTransformer
 from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
 from core.positional_encoding2d import PositionEmbeddingLearned, PositionEmbeddingSine
@@ -13,11 +14,10 @@ from core.pooling import QuerySetAttention, SlotAttention, FunnelLayer2d
 from einops import rearrange
 
 
-from arch.cnn import CNN
 
 
 class DetViT(nn.Module):
-    def __init__(self, in_channels, out_channels, hybrid=False, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
+    def __init__(self, in_channels, out_channels, hybrid=True, patch_dim=16, num_layers=2, num_heads=32, num_queries=8, embedding_dim=512, hidden_dim=512, max_len=512, dropout=0.):
         super().__init__()
 
         self.patch_dim = patch_dim
@@ -42,7 +42,9 @@ class DetViT(nn.Module):
         # self.decoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         if hybrid:
-            self.cnn_features = CNN(in_channels, embedding_dim, 3)
+            self.cnn_features = nn.Sequential(ConvLayer(3, 8, 7, 1, 3, norm="none", separable=True),
+                                              ReZero(ConvLayer(8, 8, 3, 1, 1, norm="none", separable=True)))
+            self.linear_encoding = nn.Linear(patch_dim**2 * 8, embedding_dim)
 
         self.norm = nn.LayerNorm(embedding_dim)
 
@@ -52,6 +54,8 @@ class DetViT(nn.Module):
 
         if hasattr(self, 'cnn_features'):
             x = self.cnn_features(x)
+            x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
+            x = self.linear_encoding(x)
         else:
             x = rearrange(x, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
             x = self.linear_encoding(x)

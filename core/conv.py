@@ -18,7 +18,7 @@ class DepthWiseSeparableConv2d(nn.Sequential):
 class ConvLayer(nn.Sequential):
     def __init__(self, in_channels, out_channels,
                  kernel_size=3, stride=1, padding=1, dilation=1,
-                 bias=True, norm="BatchNorm2d", activation='ReLU', separable=False, **kwargs):
+                 bias=True, norm="none", activation='ReLU', separable=False, **kwargs):
 
         conv_func = DepthWiseSeparableConv2d if separable else nn.Conv2d
         self.out_channels = out_channels
@@ -39,7 +39,7 @@ class ConvLayer(nn.Sequential):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1, norm="BatchNorm2d"):
+    def __init__(self, in_channels, out_channels, stride=1, norm="none"):
         super(ResBlock, self).__init__()
         bias = norm == 'none'
         self.in_channels = in_channels
@@ -64,6 +64,7 @@ class ResBlock(nn.Module):
 
         self.downsample = nn.Sequential()
         if stride != 1 or in_channels != out_channels:
+            self.scale = nn.Parameter(torch.zeros((1,), dtype=torch.float32))
             self.downsample = ConvLayer(
                 in_channels=in_channels,
                 out_channels=out_channels,
@@ -78,6 +79,6 @@ class ResBlock(nn.Module):
     def forward(self, x):
         out = self.conv1(x)
         out = self.conv2(out)
-        out += self.downsample(x)
-        out = f.relu(out)
+        out += self.downsample(x) * self.scale
+        out = f.leaky_relu(out)
         return out

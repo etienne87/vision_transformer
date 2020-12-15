@@ -46,16 +46,17 @@ class UnetConv(nn.Module):
         enc, dec = unet_layers(down, midd, up, base, downs, ups[0]*2, ups)
         self.unet = Unet(enc, dec)
 
-        self.head = ConvLayer(in_channels, base, 5, 2, 2)
+        self.head = ConvLayer(in_channels + 2 * coords, base, 5, 2, 2)
 
         self.coords = coords
-        self.predictor = nn.Conv2d(ups[-1] + 2 * coords, out_channels, 1, 1, 0)
+        self.predictor = nn.Conv2d(ups[-1] + 0 * coords, out_channels, 1, 1, 0)
         self.height, self.width = -1, -1
+
 
     def _generate_grid(self, height, width):
         self.height = height
         self.width = width
-        grid_h, grid_w = torch.meshgrid([torch.linspace(0., 1., height), torch.linspace(0., 1., width)])
+        grid_h, grid_w = torch.meshgrid([torch.linspace(-1., 1., height), torch.linspace(-1., 1., width)])
         self.grid = torch.cat((grid_w[None, None, :, :], grid_h[None, None, :, :]), 1) 
 
     def add_coords(self, y):
@@ -68,14 +69,17 @@ class UnetConv(nn.Module):
         return y
 
     def forward(self, x): 
+        if self.coords:
+            x = self.add_coords(x)
         y = self.head(x) 
         y = self.unet(y)
 
-        if self.coords:
-            y = self.add_coords(y)
+        # if self.coords:
+        #     y = self.add_coords(y)
 
         y = self.predictor(y)
         y = rearrange(y, 'b c h w -> b (h w) c')
+
         return y
 
 

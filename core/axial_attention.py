@@ -114,15 +114,21 @@ class AxialTransformer(nn.Module):
     Will work in whatever number of topological dimensions
     TODO: add mask
     """
-    def __init__(self, num_dimensions, dim, depth, heads, mlp_dim, dropout):
+    def __init__(self, num_dimensions, dim, depth, heads, mlp_dim, dropout, rezero=True):
         super().__init__()
         self.layers = nn.ModuleList([])
         self.dim = dim
         for _ in range(depth):
-            self.layers.append(nn.ModuleList([
-                Residual(PreNorm(dim, AxialAttention(dim, num_dimensions, heads = heads, dim_index=-1, dropout = dropout))),
-                Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
-            ]))
+            if rezero:
+                self.layers.append(nn.ModuleList([
+                    ReZero(AxialAttention(dim, num_dimensions, heads = heads, dim_index=-1, dropout = dropout)),
+                    ReZero(FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+            else:
+                self.layers.append(nn.ModuleList([
+                    Residual(PreNorm(dim, AxialAttention(dim, num_dimensions, heads = heads, dim_index=-1, dropout = dropout))),
+                    Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
+                ]))
 
     def forward(self, x):
         assert x.shape[-1] == self.dim

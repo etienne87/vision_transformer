@@ -89,7 +89,7 @@ class DetectionModel(pl.LightningModule) :
 
     def training_step(self,batch, batch_nb) :
         _, loss, loss_dict = self.get_loss(batch, batch_nb)
-        for key in self.weight_dict.keys():
+        for key, val in loss_dict.items():
             self.log('train_loss_'+key, loss_dict[key])
         self.log('train_loss', loss.item())
         return {'loss': loss}

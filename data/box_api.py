@@ -6,8 +6,6 @@ import json
 import cv2
 
 EventBbox = np.dtype({'names':['t','x','y','w','h','class_id','track_id','class_confidence'], 'formats':['<i8','<f4','<f4','<f4','<f4','<u4','<u4','<f4'], 'offsets':[0,8,12,16,20,24,28,32], 'itemsize':40})
-from metavision_core.event_io import DatReader
-
 
 COLORS = cv2.applyColorMap(np.arange(0, 255).astype(np.uint8), cv2.COLORMAP_HSV)[:, 0]
 

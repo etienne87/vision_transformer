@@ -62,6 +62,18 @@ class AxialPositionalEmbedding(nn.Module):
         return pos_emb[:, :t].to(x)
 
 
+class AxialPositionalEmbeddingImage(nn.Module):
+    def __init__(self, dim, axial_shape, axial_dims = None):
+        super().__init__()
+        assert len(axial_shape) == 2, 'Axial shape must have 2 dimensions for volumes'
+        self.pos_emb = AxialPositionalEmbedding(dim, axial_shape, axial_dims)
+
+    def forward(self, x):
+        b, h, w, c = x.shape
+        vol = x.reshape(b, h * w, c)
+        pos_emb = self.pos_emb(vol)
+        return x + pos_emb.reshape(b, h, w, c)
+
 
 class AxialPositionalEmbeddingVolume(nn.Module):
     def __init__(self, dim, axial_shape, axial_dims = None):
@@ -75,4 +87,9 @@ class AxialPositionalEmbeddingVolume(nn.Module):
         pos_emb = self.pos_emb(vol)
         return x + pos_emb.reshape(b, h, w, z, c)
         
-
+if __name__ == '__main__':
+    b, h, w, c = 1, 32, 32, 16
+    x = torch.randn(b,h,w,c)
+    net = AxialPositionalEmbeddingImage(c, (128,128))
+    y = net(x) 
+    print(y.shape)

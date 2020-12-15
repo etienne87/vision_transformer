@@ -10,6 +10,8 @@ from detection.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
 from detection.utils import is_dist_avail_and_initialized, get_world_size, accuracy, cuda_time 
 
 
+from kornia.losses import dice_loss
+
 
 
 class HungarianMatcher(nn.Module):

@@ -12,6 +12,8 @@ from core.conv_rnn import ConvRNN
 from core.conv import ResBlock, ConvLayer
 from core.temporal import SequenceWise
 from einops import rearrange
+from core.axial_attention import AxialTransformer
+from core.axial_positional_embedding import AxialPositionalEmbeddingImage
 
 
 class UpConv(nn.Module):
@@ -29,6 +31,7 @@ class UpConv(nn.Module):
         return out
 
 
+
 class UnetConv(nn.Module):
     """
     U-Net with Conv
@@ -42,16 +45,20 @@ class UnetConv(nn.Module):
         down = lambda x,y:ResBlock(x,y,stride=2)
         midd = lambda x,y:ConvLayer(x,y)
         up = lambda x,y:UpConv(x,y)
+        # up = lambda x,y:UpAxial(x,y)
 
         enc, dec = unet_layers(down, midd, up, base, downs, ups[0]*2, ups)
         self.unet = Unet(enc, dec)
 
-        self.head = ConvLayer(in_channels + 2 * coords, base, 5, 2, 2)
+        self.head = ConvLayer(in_channels + 2 * coords, base, 5, 2, 2, norm='BatchNorm2d')
 
         self.coords = coords
-        self.predictor = nn.Conv2d(ups[-1] + 0 * coords, out_channels, 1, 1, 0)
+        self.predictor = nn.Conv2d(ups[-1] + 2 * coords, out_channels, 1, 1, 0)
         self.height, self.width = -1, -1
 
+        # embedding_dim = ups[-1] + 2 * coords
+        # self.linear_decoding = nn.Linear(embedding_dim, out_channels)
+        # self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
 
     def _generate_grid(self, height, width):
         self.height = height
@@ -74,11 +81,12 @@ class UnetConv(nn.Module):
         y = self.head(x) 
         y = self.unet(y)
 
-        # if self.coords:
-        #     y = self.add_coords(y)
+        if self.coords:
+            y = self.add_coords(y)
 
         y = self.predictor(y)
         y = rearrange(y, 'b c h w -> b (h w) c')
+        # y = self.decoder(y)
 
         return y
 

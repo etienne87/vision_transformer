@@ -66,7 +66,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         checkpoint = torch.load(ckpt)
         model.cuda()
         model.load_state_dict(checkpoint['state_dict'])
-        model.demo_video(dm.val_dataloader(), show_video=True)
+        model.demo_video(dm.train_dataloader(), show_video=True)
     elif just_val:
         pl.Trainer().test(model, test_dataloaders=dm.val_dataloader())
     else:

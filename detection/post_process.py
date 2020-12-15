@@ -3,12 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detection.box_ops import box_cxcywh_to_xyxy
 
+from torchvision.ops.boxes import batched_nms
+
+
+def nms(boxes, scores, labels, nms_thresh=0.5):
+    keep = batched_nms(boxes, scores, labels, nms_thresh)
+    return boxes[keep], scores[keep], labels[keep]
 
 
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
     @torch.no_grad()
-    def forward(self, outputs, target_sizes, score_thresh=0.7):
+    def forward(self, outputs, target_sizes, score_thresh=0.7, nms_thresh=0.7):
         """ Perform the computation
         Parameters:
             outputs: raw outputs of the model
@@ -32,6 +38,17 @@ class PostProcess(nn.Module):
         boxes = boxes * scale_fct[:, None, :]
 
         masks = [s>= score_thresh for s in scores]
-        results = [{'scores': s[m], 'labels': l[m], 'boxes': b[m]} for s, l, b, m in zip(scores, labels, boxes, masks)]
+        # In theory: just filter
+        if nms_thresh == 0:
+            results = [{'scores': s[m], 'labels': l[m], 'boxes': b[m]} for s, l, b, m in zip(scores, labels, boxes, masks)]
+        else:
+            # In practice: do nms...SAD :/ 
+            results = []
+            for s, l, b, m in zip(scores, labels, boxes, masks):
+                s = s[m]
+                l = l[m]
+                b = b[m]
+                b,s,l = nms(b,s,l)
+                results.append({'scores': s, 'labels': l, 'boxes': b})
 
         return results

@@ -246,7 +246,7 @@ class DetectionModel(pl.LightningModule) :
             ncols = int(np.ceil(batch_size / nrows))
             grid = np.zeros((nrows * hparams.height, ncols * hparams.width, 3), dtype=np.uint8)
 
-            predictions = self.get_boxes(batch, score_thresh=0.5)
+            predictions = self.get_boxes(batch, score_thresh=0.1)
 
             for t in range(len(images)):
                 for i in range(len(images[0])):

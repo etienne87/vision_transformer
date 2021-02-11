@@ -79,32 +79,41 @@ class FeedForward(nn.Module):
         )
     def forward(self, x):
         return self.net(x)
-    
+
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 8, dropout = 0., normalize_fn=lambda x:torch.nn.functional.softmax(x, dim=-1), rel_pos_embedding=False):
+    def __init__(self, dim, heads = 8, dropout = 0., dim_qk=None, normalize_fn=lambda x:torch.nn.functional.softmax(x, dim=-1)):
         super().__init__()
         self.heads = heads
-        self.scale = dim ** -0.5
+        dim_qk = dim_qk if dim_qk is not None else dim
 
-        self.to_qkv = nn.Linear(dim, dim * 3, bias = False)
+        self.to_qk = nn.Linear(dim, dim_qk * 2, bias = False)
+        self.to_v = nn.Linear(dim, dim, bias = False)
         self.to_out = nn.Sequential(
             nn.Linear(dim, dim),
             nn.Dropout(dropout)
         )
         self.normalize_fn = normalize_fn
-        self.rel_pos_embedding = rel_pos_embedding
-        if rel_pos_embedding:
-            self.rpr = RelativePositionBias(heads=heads)
 
-    def forward(self, x, mask = None):
+        #learning scale is not so useful but perhaps it turns softmax into max or average?
+        self.scale = dim ** -0.5
+        # self.scale = nn.Parameter(torch.randn((1,heads,1,1), dtype=torch.float32))
+        # nn.init.normal_(self.scale, mean=dim**-0.5, std=0.01)
+
+    def forward(self, x, mask = None, pos = None):
         b, n, _, h = *x.shape, self.heads
-        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        # qkv = self.to_qkv(x).chunk(3, dim = -1)
+        qkv = *self.to_qk(x).chunk(2, dim = -1), self.to_v(x)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
 
+        # position "infused" attention: inject position embedding to q & k
+        if pos is not None:
+            # pos embedding is shared everywhere... might be a bit too biased...
+            hpos = rearrange(pos, 'b n (h d) -> b h n d', h = h)
+            q += hpos
+            k += hpos
+
         dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
-        if self.rel_pos_embedding:
-            dots = self.rpr(dots)
         mask_value = -torch.finfo(dots.dtype).max
 
         if mask is not None:
@@ -148,7 +157,7 @@ class Transformer(nn.Module):
         for _ in range(depth):
             if rezero:
                 self.layers.append(nn.ModuleList([
-                        ReZero(Attention(dim, heads=heads, dropout=dropout)),
+                        ReZero(Attention(dim, heads=heads, dim_qk=None, dropout=dropout)),
                         ReZero(FeedForward(dim, mlp_dim, dropout=dropout))
                     ]))
             else:
@@ -158,9 +167,9 @@ class Transformer(nn.Module):
                         Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
                     ]))
 
-    def forward(self, x, mask = None):
+    def forward(self, x, mask = None, pos=None):
         for attn, ff in self.layers:
-            x = attn(x, mask = mask)
+            x = attn(x, mask = mask, pos=pos)
             x = ff(x)
         return x
 
@@ -171,6 +180,6 @@ if __name__ == '__main__':
 
     b,n,c = 3,50,32
     x = torch.randn(b,n,c)
-    net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.) 
+    net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.)
     y = net(x)
     print(y.shape)

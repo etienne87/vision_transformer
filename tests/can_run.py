@@ -1,7 +1,18 @@
 import torch
+import time
 
 from core import *
-from arch import * 
+from arch import *
+
+
+def cuda_tick():
+    torch.cuda.synchronize()
+    return time.time()
+
+def cuda_timer(fn, *args, **kwargs):
+    t1 = cuda_tick()
+    fn(*args, **kwargs)
+    return cuda_tick()-t1
 
 
 def learned_positional_encoding():
@@ -15,7 +26,7 @@ def learned_positional_encoding():
 def transformer():
     b,n,c = 3,50,32
     x = torch.randn(b,n,c)
-    net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.) 
+    net = Transformer(dim=c, depth=3, heads=8, mlp_dim=64, dropout=0.)
     y = net(x)
     print(y.shape)
 
@@ -37,10 +48,11 @@ def recursive_hopfield():
     print(y.shape)
 
 
+@cuda_timer
 def vit():
     b,c,h,w = 10,3,64,64
     x = torch.randn(b,c,h,w)
-    net = ViT(c,6)
+    net = ViT(c,16)
     y = net(x)
     print(y.shape)
 
@@ -69,24 +81,33 @@ def vit_rnn():
     print(y.shape)
 
 
+@cuda_timer
+def conv_rnn():
+    t,b,c,h,w = 16,10,3,16,16
+    x = torch.randn(t,b,c,h,w)
+    net = ConvRNN(c, 16, 8)
+    y = net(x)
+    print(y.shape)
+
+
 def axial_attention():
-    b,c,h,w,z = 5,8,28,29,30 
+    b,c,h,w,z = 5,8,28,29,30
     x = torch.randn(b,c,h,w,z)
     net = AxialAttention(c, num_dimensions=3, dim_index=1)
-    y = net(x) 
+    y = net(x)
     print(y.shape)
 
 
 def axial_positional_embedding():
-    b,c,h,w,z = 5,8,28,29,30 
+    b,c,h,w,z = 5,8,28,29,30
     x = torch.randn(b,c,h,w,z)
     net = AxialPositionalEmbeddingVolume(c, (28,29,30))
-    y = net(x) 
+    y = net(x)
     print(y.shape)
 
 
 def axial_transformer():
-    b,c,h,w,z = 5,8,28,29,30 
+    b,c,h,w,z = 5,8,28,29,30
     x = torch.randn(b,h,w,z,c)
     net = AxialTransformer(3, c, 1, 2, 64, 0)
     y = net(x)

@@ -1,5 +1,5 @@
 """
-Toy Problem Dataset that serves as an example 
+Toy Problem Dataset that serves as an example
 of our streamer dataloader.
 
 It is the same as "moving_mnist_detection", but
@@ -12,13 +12,13 @@ import time
 import cv2
 import torch
 import numpy as np
-import uuid 
+import uuid
 
 from moving_mnist import moving_box as toy
 from moving_mnist.multistream_dataloader import MultiStreamDataLoader, MultiStreamDataset
 
 from torchvision import datasets, transforms
-from functools import partial 
+from functools import partial
 
 
 
@@ -39,8 +39,8 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-            min_objects=1, max_objects=2, 
-            train=True, max_frames_per_video=100, colorization_problem=False, data_caching_path='/tmp/mnist_data'): 
+            min_objects=1, max_objects=2,
+            train=True, max_frames_per_video=100, colorization_problem=False, data_caching_path='/tmp/mnist_data'):
         self.dataset_ = datasets.MNIST(data_caching_path, train=train, download=True,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
@@ -49,7 +49,7 @@ class MovingMnist(toy.Animation):
         self.tbins = tbins
         self.max_frames_per_video = max_frames_per_video
         max_classes = 10
-        self.video_info = str(uuid.uuid4()) 
+        self.video_info = str(uuid.uuid4())
         self.label_img = np.zeros((height, width), dtype=np.uint8)
         self.colorization_problem = colorization_problem
         super(MovingMnist, self).__init__(height, width, channels, max_stop, max_classes, min_objects, max_objects)
@@ -94,8 +94,8 @@ class MovingMnist(toy.Animation):
             else:
                 mask_thumb[thumbnail >= 0.1] = digit.class_id + self.label_offset
             self.label_img[y1:y2, x1:x2] = mask_thumb * (mask_thumb > 0) + self.label_img[y1:y2, x1:x2] * (mask_thumb == 0)
-            
-        output = self.img 
+
+        output = self.img
         mask = self.label_img
         self.steps += 1
         return (output, mask)
@@ -103,7 +103,7 @@ class MovingMnist(toy.Animation):
     def __iter__(self):
         for r in range(self.max_frames_per_video//self.tbins):
             reset = self.steps > 0
-            imgs, targets = [], [] 
+            imgs, targets = [], []
             for t in range(self.tbins):
                 img, target = self.step()
                 imgs.append(img[None].copy())
@@ -122,7 +122,7 @@ def collate_fn(data_list):
     Args:
         data_list: batch parts
     """
-    batch, masks, resets, video_infos = zip(*data_list) 
+    batch, masks, resets, video_infos = zip(*data_list)
     batch = torch.cat([item[:, None] for item in batch], dim=1)
     batch = batch.permute(0,1,4,2,3).contiguous()
     t, n = batch.shape[:2]
@@ -131,13 +131,13 @@ def collate_fn(data_list):
     frame_is_labelled = torch.ones((t, n), dtype=torch.float32)
     return {'inputs': batch, 'labels': masks, "frame_is_labelled": frame_is_labelled,
             'mask_keep_memory': resets, "video_infos": video_infos}
-            
+
 
 class MovingMNISTSegDataset(MultiStreamDataLoader):
     """Multi-MNIST Animations Parallel Streamer
 
     (This time for segmentation)
-    
+
     Args:
         datasets: MultiStream datasets with MovingMnist streamers
         collate_fn: above batch collation function
@@ -155,15 +155,16 @@ class MovingMNISTSegDataset(MultiStreamDataLoader):
         In practice you can either discard this function or make an estimate using a few streams.
         """
         args = self.datasets[0].stream_kwargs
-        mini_epochs = len(self.datasets[0].stream_list) // self.datasets[0].batch_size 
-        max_batch_per_epoch = mini_epochs * args['max_frames_per_video'] // args['tbins'] 
+        mini_epochs = len(self.datasets[0].stream_list) // self.datasets[0].batch_size
+        max_batch_per_epoch = mini_epochs * args['max_frames_per_video'] // args['tbins']
         return max_batch_per_epoch
 
 
-def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256, 
+def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256,
+                      random_seed=0,
                       max_frames_per_video=10, max_frames_per_epoch=5000, train=True, min_objects=1, max_objects=2, colorization_problem=False):
     """Creates the dataloader for moving mnist
-    
+
     Args:
         tbins: number of steps per batch
         num_workers: number of parallel workers
@@ -179,7 +180,7 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
     dummy_list = [i for i in range(n)]
     parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=train, min_objects=min_objects, max_objects=max_objects, colorization_problem=colorization_problem)
+    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, train=train, min_objects=min_objects, max_objects=max_objects, colorization_problem=colorization_problem, random_seed=random_seed)
     dataset = MovingMNISTSegDataset(datasets, collate_fn, parallel=parallel)
 
     return dataset, ['background']+[str(i) for i in range(10)]

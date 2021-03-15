@@ -6,8 +6,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
+from einops import rearrange, repeat
 
-from core.transformer import Attention
+
+def exists(val):
+    return val is not None
+
+def default(val, d):
+    return val if exists(val) else d
+
+def cache_fn(f):
+    cache = None
+    @wraps(f)
+    def cached_fn(*args, **kwargs):
+        nonlocal cache
+        if cache is not None:
+            return cache
+        cache = f(*args, **kwargs)
+        return cache
+    return cached_fn
 
 
 def fourier_encode(x, num_encodings = 4):
@@ -70,7 +87,7 @@ class Attention(nn.Module):
 
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
 
-        sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+        sim = torch.einsum('b i d, b j d -> b i j', q, k) * self.scale
 
         if exists(mask):
             max_neg_value = -torch.finfo(sim.dtype).max
@@ -80,46 +97,138 @@ class Attention(nn.Module):
         # attention, what we cannot get enough of
         attn = sim.softmax(dim = -1)
 
-        out = einsum('b i j, b j d -> b i d', attn, v)
+        out = torch.einsum('b i j, b j d -> b i d', attn, v)
         out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         return self.to_out(out)
 
 
 
-class SparsePerceiver(nn.Module):
+class SparseInputPerceiver(nn.Module):
     """Sparsify RGBT volume
     -> Perceiver Strategy (Cross-Attention + iterative refinements)
     """
-    def __init__(self, in_channels, out_channels, num_layers=2):
+    def __init__(self,
+                input_channels,
+                output_channels,
+                depth=3,
+                input_axis=3,
+                num_fourier_features=64,
+                num_latents=32,
+                latent_dim=512,
+                latent_dim_head = 64,
+                latent_heads=8,
+                cross_dim=512,
+                cross_heads=1,
+                cross_dim_head=64,
+                weight_tie_layers=False):
         super().__init__()
+        self.num_fourier_features = num_fourier_features
+        self.num_latents = num_latents
+        self.latent_dim = latent_dim
+        self.cross_dim = cross_dim
+        self.latent_heads = latent_heads
+        self.cross_dim_head = cross_dim_head
+        self.latent_dim_head = latent_dim_head
+        self.input_dim = input_channels + input_axis * ((num_fourier_features * 2) + 1)
 
-        self.patch_dim = patch_dim
+        self.latents = nn.Parameter(torch.randn(num_latents, latent_dim))
+        self.pos_emb = nn.Parameter(torch.randn(num_latents, latent_dim))
 
-        self.flatten_dim_in = patch_dim * patch_dim * in_channels
-        self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
+        get_cross_attn = lambda: ReZero(Attention(latent_dim, self.input_dim))
+        get_cross_ff = lambda: ReZero(FeedForward(latent_dim))
+        get_latent_attn = lambda: ReZero(Attention(latent_dim))
+        get_latent_ff = lambda: ReZero(FeedForward(latent_dim))
 
-        self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
+        if weight_tie_layers:
+            get_cross_attn, get_cross_ff, get_latent_attn, get_latent_ff = map(cache_fn, (get_cross_attn, get_cross_ff, get_latent_attn, get_latent_ff))
 
-        self.transformer = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.layers = nn.ModuleList([])
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                get_cross_attn(),
+                get_cross_ff(),
+                get_latent_attn(),
+                get_latent_ff()
+            ]))
 
-        self.flatten_dim_out = patch_dim * patch_dim * out_channels
-        self.linear_decoding = nn.Linear(embedding_dim, self.flatten_dim_out)
+        self.out_cross_attn = Attention(self.input_dim, latent_dim)
+        self.to_logits = nn.Linear(self.input_dim, output_channels)
 
-
-    def forward(self, x):
-        t,b,c,h,w = x.shape
+    def sparsify(self, input, threshold=0):
+        """
         #A. Sparsify x into:
             #1. positions   x,y,t   B,N,3
             #2. values      r,g,b   B,N,3
             #3. masks               B,N,
+        """
+        b,h,w,nt,c = input.shape
+        mask = input.max(dim=-1)[0].abs() > threshold
+        nums = mask.view(b,-1).sum(dim=-1)
+        max_len = nums.max().item()
+        dtype = input.dtype
+        device = input.device
 
+        pos = torch.zeros((b,max_len,3), dtype=dtype, device=device)
+        vals = torch.zeros((b,max_len,c), dtype=dtype, device=device)
+        masks = torch.zeros((b,max_len,), dtype=torch.bool, device=device)
+
+        for i in range(b):
+            y, x, t = torch.where(mask[i])
+            n = len(y)
+            pos[i, :n, 0] = 2*y/(h-1)-1
+            pos[i, :n, 1] = 2*x/(w-1)-1
+            pos[i, :n, 2] = 2*t/(nt-1)-1
+            masks[i, :n] = 1
+            vals[i, :n] = input[i, y, x, t]
+        return pos, vals, masks
+
+    def perceiver(self, x, data, mask):
+        """
         #B. Run Perceiver(positions, values, masks)
+        """
+        for cross_attn, cross_ff, latent_attn, latent_ff in self.layers:
+            x = cross_attn(x, context = data, mask = mask) + x
+            x = cross_ff(x) + x
+            x = latent_attn(x) + x
+            x = latent_ff(x) + x
+        return x
 
-        #C. Cross-Attention to input positions
+    def predict(self, data, latents):
+        """
+        #C. Cross-Attention to input positions not all of them
             #1. positions x,y,t
             #2. output values B,out_channels
+        """
+        x = self.out_cross_attn(data, latents)
+        y = self.to_logits(x)
+        return y
+
+    def forward(self, input):
+        """we expect x: B,T,H,W,C
+        """
+        pos, vals, masks = self.sparsify(input)
+
+        enc_pos = fourier_encode(pos, self.num_fourier_features)
+        enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
+
+        data = torch.cat((vals, enc_pos), dim = -1)
+        data = rearrange(data, 'b ... d -> b (...) d')
+
+        # first of all, wait...why?
+        # second of all, x could be hidden state of this whole thing
+        x = self.latents + self.pos_emb
+        x = repeat(x, 'n d -> b n d', b = b)
+        x = self.perceiver(x, data, masks)
+        return self.predict(data, x)
 
 
+if __name__ == '__main__':
+    b,c,h,w,t = 3,3,64,64,10
+    x = torch.randn(b,h,w,t,c)
+    x = (x > 0.1) * x
+    net = SparseInputPerceiver(3, 10)
+    y = net(x)
+    print(y.shape)
 
 
 

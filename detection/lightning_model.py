@@ -17,18 +17,18 @@ import skvideo.io
 from moving_mnist.moving_mnist_detection import make_moving_mnist
 from core.temporal import time_to_batch
 from detection.hungarian_loss import HungarianMatcher, SetCriterion
-from detection.utils import normalize, filter_outliers
 from detection.box_ops import box_xyxy_to_cxcywh
 from detection.post_process import PostProcess
 from detection.coco_eval import coco_evaluation
+
 from utils import box_api
+from utils.misc import cuda_time, normalize, filter_outliers
 
 from types import SimpleNamespace
 from itertools import chain, islice
 from torchvision.utils import make_grid
 from collections import defaultdict
 
-from utils.misc import cuda_time
 
 
 class DetectionModel(pl.LightningModule) :

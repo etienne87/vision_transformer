@@ -217,6 +217,9 @@ class SparseInputPerceiver(nn.Module):
             (e.g: what about outputting only where difference is greater than threshold?)
         3. so far: predict from latent space only
         """
+        input = rearrange(input, 't b c h w -> b h w t c')
+        b = len(input)
+
         pos, vals, masks = self.sparsify_v1(input)
 
         enc_pos = fourier_encode(pos, self.num_fourier_features)

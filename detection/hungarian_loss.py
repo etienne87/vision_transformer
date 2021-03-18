@@ -7,7 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
 from detection.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
-from detection.utils import is_dist_avail_and_initialized, get_world_size, accuracy, cuda_time 
+from utils.misc import is_dist_avail_and_initialized, get_world_size, accuracy, cuda_time
 
 
 from kornia.losses import dice_loss
@@ -37,7 +37,7 @@ class HungarianMatcher(nn.Module):
     @torch.no_grad()
     def my_forward(self, outputs, targets):
         """My code, this is just to understand better the cost computation
-        I thought perhaps this would be 
+        I thought perhaps this would be
         """
         bs, num_queries = outputs["pred_logits"].shape[:2]
 
@@ -46,7 +46,7 @@ class HungarianMatcher(nn.Module):
         out_bbox = outputs["pred_boxes"]    # [batch_size, num_queries, 4]
 
         # We will form batch_size costs of shape [num_queries, num_gt]
-        costs = [] 
+        costs = []
         for i in range(bs):
             tgt_id = targets[i]["labels"]
             cost_class = -out_prob[i,:, tgt_id]
@@ -60,7 +60,7 @@ class HungarianMatcher(nn.Module):
             cost = cost.cpu()
             costs.append(cost)
 
-        indices = [linear_sum_assignment(cost) for cost in costs] 
+        indices = [linear_sum_assignment(cost) for cost in costs]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
     @torch.no_grad()

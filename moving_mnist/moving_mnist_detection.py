@@ -6,6 +6,26 @@ This time it is detection
 """
 from __future__ import absolute_import
 
+import urllib.request
+import tarfile
+import os
+import shutil
+
+
+def download_mnist(url='https://www.di.ens.fr/~lelarge/MNIST.tar.gz',
+                  path='/tmp/mnist/'):
+    tar_name = os.path.basename(url)
+    tar_filename = os.path.join(path, tar_name)
+    filename = os.path.join(path, 'MNIST')
+    if not os.path.exists(tar_filename):
+        filedata = urllib.request.urlretrieve(url, tar_filename)
+    if not os.path.exists(filename):
+        shutil.unpack_archive(tar_filename, path+'/')
+
+PATH = '/tmp/mnist'
+download_mnist(path=PATH)
+
+
 import sys
 import time
 import cv2
@@ -19,10 +39,10 @@ from moving_mnist.multistream_dataloader import MultiStreamDataLoader, MultiStre
 from torchvision import datasets, transforms
 from functools import partial
 
-TRAIN_DATASET = datasets.MNIST('/tmp/mnist', train=True, download=True,
+TRAIN_DATASET = datasets.MNIST(PATH, train=True, download=False,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
-VAL_DATASET = datasets.MNIST('/tmp/mnist', train=False, download=True,
+VAL_DATASET = datasets.MNIST(PATH, train=False, download=False,
                                        transform=transforms.Compose([transforms.ToTensor(),
                                                                      transforms.Normalize((0.1307,), (0.3081,))]))
 
@@ -31,7 +51,7 @@ class FileMetadata(object):
     """Video Infos
     """
     def __init__(self, path, duration, delta_t, tbins):
-        self.path = path 
+        self.path = path
         self.delta_t = delta_t
         self.duration = duration
         self.tbins = tbins
@@ -71,7 +91,7 @@ class MovingMnist(toy.Animation):
 
     def reset(self):
         super(MovingMnist, self).reset()
-        dataset = TRAIN_DATASET if self.train else VAL_DATASET 
+        dataset = TRAIN_DATASET if self.train else VAL_DATASET
         self.steps = 0
         self.ids = [i for i in range(1, 255)]
         np.random.shuffle(self.ids)

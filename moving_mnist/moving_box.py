@@ -7,7 +7,7 @@ from __future__ import absolute_import
 
 import math
 import numpy as np
-from data.box_api import EventBbox
+from utils.box_api import EventBbox
 
 # FLAGS for moving box collisions
 OK = 0
@@ -53,7 +53,7 @@ def move_box(x1, y1, x2, y2, vx, vy, vs, width, height, min_width, min_height):
     """Move bounding box around in a frame
     using velocity vx, vy & vscale.
     It returns the moved box and a flag saying if
-    you need to change the speed because it did 
+    you need to change the speed because it did
     a collision with a wall.
 
     Args:
@@ -69,7 +69,7 @@ def move_box(x1, y1, x2, y2, vx, vy, vs, width, height, min_width, min_height):
         min_width: minimal box width
         min_height: minimal box height
     Return:
-        moved box  
+        moved box
     """
     x1, x2, y1, y2 = x1 + vx, x2 + vx, y1 + vy, y2 + vy
 
@@ -121,8 +121,8 @@ class MovingSquare(object):
         self.class_id = np.random.randint(max_classes)
         self.iter = 0
         self.max_speed_t = max_speed_t
-        self.min_speed_s = min_speed_s 
-        self.max_speed_s = max_speed_s 
+        self.min_speed_s = min_speed_s
+        self.max_speed_s = max_speed_s
 
         self.x1 = 0 #left
         self.y1 = 0 #top
@@ -151,11 +151,11 @@ class MovingSquare(object):
     def reset_speed(self):
         """Resets Speed Variables
         """
-        
+
         self.vx = np.random.randint(1, self.max_speed_t) * (np.random.randint(0, 2) * 2 - 1)
         self.vy = np.random.randint(1, self.max_speed_t) * (np.random.randint(0, 2) * 2 - 1)
         self.vs = np.random.uniform(self.min_speed_s, self.max_speed_s)
-        
+
         if np.random.randint(0, 2) == 0:
             self.vs = 1 + self.vs
         else:
@@ -208,7 +208,7 @@ class MovingSquare(object):
         x1, y1, x2, y2 = clamp_xyxy(self.x1, self.y1, self.x2, self.y2, self.width, self.height)
         self.iter += 1
         return (x1, y1, x2, y2)
-    
+
     def __iter__(self):
         return self
 
@@ -216,7 +216,7 @@ class MovingSquare(object):
 class Animation(object):
     """
     Responsible for endless Animation of moving boxes.
-    Mother class that can be inherited for various 
+    Mother class that can be inherited for various
     drawings of moving objects.
 
     Args:
@@ -262,13 +262,13 @@ class Animation(object):
         for i, anim in enumerate(self.objects):
             x1, y1, x2, y2 = next(anim)
             boxes['t'][i] = self.t
-            boxes['x'][i] = x1 
+            boxes['x'][i] = x1
             boxes['y'][i] = y1
             boxes['w'][i] = x2 - x1
             boxes['h'][i] = y2 - y1
             boxes['class_confidence'][i] = 1.0
             boxes['class_id'][i] = anim.class_id + self.label_offset
-            boxes['track_id'][i] = i 
+            boxes['track_id'][i] = i
         self.t += 1
         return boxes
 

@@ -152,9 +152,9 @@ class SparseInputPerceiver(nn.Module):
             ]))
 
         self.out_cross_attn = Attention(self.input_dim, latent_dim)
-        self.to_logits = nn.Linear(self.input_dim, output_channels)
+        self.to_logits = nn.Linear(self.latent_dim, output_channels)
 
-    def sparsify(self, input, threshold=0):
+    def sparsify_v1(self, input, threshold=0):
         """
         #A. Sparsify x into:
             #1. positions   x,y,t   B,N,3
@@ -175,12 +175,15 @@ class SparseInputPerceiver(nn.Module):
         for i in range(b):
             y, x, t = torch.where(mask[i])
             n = len(y)
-            pos[i, :n, 0] = 2*y/(h-1)-1
-            pos[i, :n, 1] = 2*x/(w-1)-1
-            pos[i, :n, 2] = 2*t/(nt-1)-1
+            pos[i, :n, 0] = y
+            pos[i, :n, 1] = x
+            pos[i, :n, 2] = t
             masks[i, :n] = 1
             vals[i, :n] = input[i, y, x, t]
         return pos, vals, masks
+
+    #def sparsify_v2(self, input, threshold=0):
+    #    """sends all rgb values where rgb_t+1 != rgb_t"""
 
     def perceiver(self, x, data, mask):
         """
@@ -193,20 +196,28 @@ class SparseInputPerceiver(nn.Module):
             x = latent_ff(x) + x
         return x
 
-    def predict(self, data, latents):
-        """
-        #C. Cross-Attention to input positions not all of them
-            #1. positions x,y,t
-            #2. output values B,out_channels
-        """
-        x = self.out_cross_attn(data, latents)
-        y = self.to_logits(x)
-        return y
+    # def predict(self, data, latents):
+    #     """
+    #     #C. Cross-Attention to input positions not all of them
+    #         #1. positions x,y,t
+    #         #2. output values B,out_channels
+    #     """
+    #     x = self.out_cross_attn(data, latents) + data
+    #     y = self.to_logits(x)
+    #     return y
+
+    # def densify(self, positions, predictions, input):
+    #     b,h,w,t,_ = input.shape
+    #     output = torch.zeros((b,h,w,t,self.output_channels), dtype=input.dtype, device=output.device)
 
     def forward(self, input):
-        """we expect x: B,T,H,W,C
         """
-        pos, vals, masks = self.sparsify(input)
+        1. we expect x: B,T,H,W,C
+        2. sparsify with thresholding or with another technique
+            (e.g: what about outputting only where difference is greater than threshold?)
+        3. so far: predict from latent space only
+        """
+        pos, vals, masks = self.sparsify_v1(input)
 
         enc_pos = fourier_encode(pos, self.num_fourier_features)
         enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
@@ -214,18 +225,20 @@ class SparseInputPerceiver(nn.Module):
         data = torch.cat((vals, enc_pos), dim = -1)
         data = rearrange(data, 'b ... d -> b (...) d')
 
-        # first of all, wait...why?
-        # second of all, x could be hidden state of this whole thing
-        x = self.latents + self.pos_emb
-        x = repeat(x, 'n d -> b n d', b = b)
-        x = self.perceiver(x, data, masks)
-        return self.predict(data, x)
+        latents = self.latents + self.pos_emb # why not just one set of params
+        latents = repeat(latents, 'n d -> b n d', b = b)
+        latents = self.perceiver(latents, data, masks)
+
+        return self.to_logits(latents)
+
+
+
 
 
 if __name__ == '__main__':
     b,c,h,w,t = 3,3,64,64,10
     x = torch.randn(b,h,w,t,c)
-    x = (x > 0.1) * x
+    x = (x.abs() > 2) * x
     net = SparseInputPerceiver(3, 10)
     y = net(x)
     print(y.shape)

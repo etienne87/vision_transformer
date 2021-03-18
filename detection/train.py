@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import os
 import argparse
 import torch
@@ -6,8 +8,10 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TestTubeLogger
 
-from detection.lightning_model import DetectionModel 
-from detection.utils import search_latest_checkpoint
+from utils import box_api
+from utils.misc import search_latest_checkpoint
+
+from detection.lightning_model import DetectionModel
 from detection.mnist_data_module import DetMNISTDataModule
 from core.temporal import SequenceWise
 import arch
@@ -26,12 +30,12 @@ def get_model(model_name, num_layers=3):
 
 
 def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, tbins=12, batch_size=64, num_classes=11, num_workers=2, max_frames_per_video=20,
-    demo_every=2, val_every=1, 
+    demo_every=2, val_every=1,
     max_frames_per_epoch=10000, val_max_frames_per_epoch=5000, min_objects=1, max_objects=2, precision=32, resume=False, just_val=False, just_demo=False,
     eos_coef=0.1, bbox_loss_coef=1, giou_loss_coef=1, cost_class=1, cost_bbox=5, cost_giou=2
     ):
     """
-    Example: 
+    Example:
 
     >> python3 segmentation/train.py test_drive model_name --max_frames_per_video 16 --max_frames_per_epoch 50000 --height 64 --width 64
 
@@ -54,9 +58,9 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     if params.just_demo or params.just_val:
         checkpoint = torch.load(ckpt)
         model.load_state_dict(checkpoint['state_dict'])
-    
+
     tmpdir = os.path.join(train_dir, 'checkpoints')
-    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='weights#{epoch}', save_top_k=None, period=1) 
+    checkpoint_callback = ModelCheckpoint(dirpath=tmpdir, filename='weights#{epoch}', save_top_k=None, period=1)
 
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),
@@ -73,8 +77,8 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt, check_val_every_n_epoch=val_every, reload_dataloaders_every_epoch=True, accumulate_grad_batches=8)
         trainer.fit(model, dm)
 
-  
-  
+
+
 if __name__ == "__main__" :
     import fire
     fire.Fire(train_mnist)

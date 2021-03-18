@@ -4,10 +4,12 @@ This class simulates a moving box in translation and zoom in a frame.
 # pylint: disable=no-member
 """
 from __future__ import absolute_import
-
 import math
 import numpy as np
-from utils.box_api import EventBbox
+
+# from utils.box_api import EventBbox
+
+EventBbox = np.dtype({'names':['t','x','y','w','h','class_id','track_id','class_confidence'], 'formats':['<i8','<f4','<f4','<f4','<f4','<u4','<u4','<f4'], 'offsets':[0,8,12,16,20,24,28,32], 'itemsize':40})
 
 # FLAGS for moving box collisions
 OK = 0

@@ -1,5 +1,5 @@
 """
-Lightning-model for detection 
+Lightning-model for detection
 """
 import torch
 import torch.nn as nn
@@ -21,19 +21,19 @@ from detection.utils import normalize, filter_outliers
 from detection.box_ops import box_xyxy_to_cxcywh
 from detection.post_process import PostProcess
 from detection.coco_eval import coco_evaluation
-from data import box_api
+from utils import box_api
 
 from types import SimpleNamespace
 from itertools import chain, islice
 from torchvision.utils import make_grid
 from collections import defaultdict
 
-from detection.utils import cuda_time
+from utils.misc import cuda_time
 
-        
+
 class DetectionModel(pl.LightningModule) :
-  
-    def __init__(self, model, hparams: argparse.Namespace):     
+
+    def __init__(self, model, hparams: argparse.Namespace):
         super().__init__()
 
         self.model = model
@@ -51,15 +51,15 @@ class DetectionModel(pl.LightningModule) :
 
     #@cuda_time
     def _inference(self, batch):
-        x, reset_mask = batch["inputs"], batch["mask_keep_memory"] 
+        x, reset_mask = batch["inputs"], batch["mask_keep_memory"]
 
         if hasattr(self.model, "reset"):
             self.model.reset(reset_mask)
-        out = self.model.forward(x) 
+        out = self.model.forward(x)
         out = time_to_batch(out)[0]
-        out = {'pred_logits': out[...,4:], 'pred_boxes': out[..., :4].sigmoid()} 
+        out = {'pred_logits': out[...,4:], 'pred_boxes': out[..., :4].sigmoid()}
         return out
-    
+
     @torch.no_grad()
     def get_boxes(self, batch, score_thresh):
         out = self._inference(batch)
@@ -70,7 +70,7 @@ class DetectionModel(pl.LightningModule) :
         t,b,_,h,w = in_shape
         batch_size = len(out['pred_logits'])
         target_sizes = torch.FloatTensor([h, w]*batch_size).reshape(batch_size, 2).type_as(out['pred_logits'])
-        boxes = self.post_process(out, target_sizes, score_thresh) 
+        boxes = self.post_process(out, target_sizes, score_thresh)
         # we fold the flatten list
         boxes_txn = [boxes[i*b:(i+1)*b] for i in range(t)]
         return boxes_txn
@@ -84,7 +84,7 @@ class DetectionModel(pl.LightningModule) :
         targets = [{'labels': bbox[:,4].long(), 'boxes': box_xyxy_to_cxcywh(bbox[:,:4])*scale_factor} for bbox in targets]
         out = self._inference(batch)
         loss_dict = self.criterion(out, targets)
-        loss = sum([loss_dict[key]*weight for key, weight in self.weight_dict.items()]) 
+        loss = sum([loss_dict[key]*weight for key, weight in self.weight_dict.items()])
         return out, loss, loss_dict
 
     def training_step(self,batch, batch_nb) :
@@ -93,7 +93,7 @@ class DetectionModel(pl.LightningModule) :
             self.log('train_loss_'+key, loss_dict[key])
         self.log('train_loss', loss.item())
         return {'loss': loss}
-        
+
     def inference_step(self, batch, batch_nb):
         with torch.no_grad():
             out, loss, loss_dict = self.get_loss(batch, batch_nb)
@@ -213,7 +213,7 @@ class DetectionModel(pl.LightningModule) :
 
 
         return dt_detections, gt_detections
-  
+
     @torch.no_grad()
     def demo_video(self, dataloader, num_batches=10000, show_video=False):
         """
@@ -227,7 +227,7 @@ class DetectionModel(pl.LightningModule) :
         if not os.path.isdir(dir):
             os.mkdir(dir)
 
-        out_video = skvideo.io.FFmpegWriter(video_name, outputdict={'-vcodec': 'libx264', '-preset':'slow'}) 
+        out_video = skvideo.io.FFmpegWriter(video_name, outputdict={'-vcodec': 'libx264', '-preset':'slow'})
 
         self.eval()
 
@@ -268,8 +268,8 @@ class DetectionModel(pl.LightningModule) :
 
                     frame = box_api.draw_box_events(frame, target, dataloader.label_map, force_color=[255,255,255], draw_score=False, thickness=1)
 
-                    y = i // ncols 
-                    x = i % ncols 
+                    y = i // ncols
+                    x = i % ncols
                     y1, y2 = y*height, (y+1)*height
                     x1, x2 = x*width, (x+1)*width
                     grid[y1:y2,x1:x2] = frame
@@ -282,7 +282,7 @@ class DetectionModel(pl.LightningModule) :
 
                 if key == 27:
                     break
-                
+
 
         if show_video:
             cv2.destroyWindow(window_name)

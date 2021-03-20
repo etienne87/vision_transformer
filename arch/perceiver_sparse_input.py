@@ -5,7 +5,9 @@ Transformer for Segmentation
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
+import revtorch as rv
 
+from functools import wraps
 from einops import rearrange, repeat
 
 
@@ -35,6 +37,41 @@ def fourier_encode(x, num_encodings = 4):
     x = torch.cat([x.sin(), x.cos()], dim=-1)
     x = torch.cat((x, orig_x), dim = -1)
     return x
+
+
+class ScaleNorm(nn.Module):
+    def __init__(self, dim, eps = 1e-5):
+        super().__init__()
+        self.eps = eps
+        self.g = nn.Parameter(torch.ones(1))
+
+    def forward(self, x):
+        n = torch.norm(x, dim = -1, keepdim = True).clamp(min = self.eps)
+        return x / n * self.g
+
+
+class PreNorm(nn.Module):
+    def __init__(self, dim, fn, context_dim = None):
+        super().__init__()
+        self.fn = fn
+        self.norm = ScaleNorm(dim)
+        self.norm_context = ScaleNorm(context_dim) if exists(context_dim) else None
+
+    def forward(self, x, **kwargs):
+        x = self.norm(x)
+
+        if exists(self.norm_context):
+            context = kwargs['context']
+            normed_context = self.norm_context(context)
+            kwargs.update(context = normed_context)
+
+        return self.fn(x, **kwargs)
+
+
+class GEGLU(nn.Module):
+    def forward(self, x):
+        x, gates = x.chunk(2, dim = -1)
+        return x * f.gelu(gates)
 
 
 class ReZero(nn.Module):
@@ -110,16 +147,14 @@ class SparseInputPerceiver(nn.Module):
     def __init__(self,
                 input_channels,
                 output_channels,
-                depth=3,
+                depth=5,
                 input_axis=3,
                 num_fourier_features=64,
-                num_latents=32,
+                num_latents=128,
                 latent_dim=512,
-                latent_dim_head = 64,
                 latent_heads=8,
                 cross_dim=512,
                 cross_heads=1,
-                cross_dim_head=64,
                 weight_tie_layers=False):
         super().__init__()
         self.num_fourier_features = num_fourier_features
@@ -127,17 +162,20 @@ class SparseInputPerceiver(nn.Module):
         self.latent_dim = latent_dim
         self.cross_dim = cross_dim
         self.latent_heads = latent_heads
-        self.cross_dim_head = cross_dim_head
-        self.latent_dim_head = latent_dim_head
-        self.input_dim = input_channels + input_axis * ((num_fourier_features * 2) + 1)
+        self.input_dim = 4**2 * input_channels + input_axis * ((num_fourier_features * 2) + 1)
 
         self.latents = nn.Parameter(torch.randn(num_latents, latent_dim))
         self.pos_emb = nn.Parameter(torch.randn(num_latents, latent_dim))
 
-        get_cross_attn = lambda: ReZero(Attention(latent_dim, self.input_dim))
-        get_cross_ff = lambda: ReZero(FeedForward(latent_dim))
-        get_latent_attn = lambda: ReZero(Attention(latent_dim))
-        get_latent_ff = lambda: ReZero(FeedForward(latent_dim))
+        # get_cross_attn = lambda: ReZero(Attention(latent_dim, self.input_dim))
+        # get_cross_ff = lambda: ReZero(FeedForward(latent_dim))
+        # get_latent_attn = lambda: ReZero(Attention(latent_dim))
+        # get_latent_ff = lambda: ReZero(FeedForward(latent_dim))
+
+        get_cross_attn = lambda: PreNorm(latent_dim, Attention(latent_dim, self.input_dim), context_dim = self.input_dim)
+        get_cross_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim))
+        get_latent_attn = lambda: PreNorm(latent_dim, Attention(latent_dim))
+        get_latent_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim))
 
         if weight_tie_layers:
             get_cross_attn, get_cross_ff, get_latent_attn, get_latent_ff = map(cache_fn, (get_cross_attn, get_cross_ff, get_latent_attn, get_latent_ff))
@@ -152,9 +190,16 @@ class SparseInputPerceiver(nn.Module):
             ]))
 
         self.out_cross_attn = Attention(self.input_dim, latent_dim)
-        self.to_logits = nn.Linear(self.latent_dim, output_channels)
 
-    def sparsify_v1(self, input, threshold=0):
+        # we will predict trajectories as
+        # x_i,t = predict_a(latent_i) * t + predict_b(latent_i)
+        # self.to_boxes_a = nn.Linear(latent_dim, 4)
+        # self.to_boxes_b = nn.Linear(latent_dim, 4)
+        # self.to_logits = nn.Linear(latent_dim, output_channels-4)
+
+        self.to_logits = nn.Linear(latent_dim, output_channels)
+
+    def sparsify_v1(self, input, threshold=0.3):
         """
         #A. Sparsify x into:
             #1. positions   x,y,t   B,N,3
@@ -175,9 +220,9 @@ class SparseInputPerceiver(nn.Module):
         for i in range(b):
             y, x, t = torch.where(mask[i])
             n = len(y)
-            pos[i, :n, 0] = y
-            pos[i, :n, 1] = x
-            pos[i, :n, 2] = t
+            pos[i, :n, 0] = 2*y/h-1
+            pos[i, :n, 1] = 2*x/w-1
+            pos[i, :n, 2] = 2*t/nt-1
             masks[i, :n] = 1
             vals[i, :n] = input[i, y, x, t]
         return pos, vals, masks
@@ -196,20 +241,6 @@ class SparseInputPerceiver(nn.Module):
             x = latent_ff(x) + x
         return x
 
-    # def predict(self, data, latents):
-    #     """
-    #     #C. Cross-Attention to input positions not all of them
-    #         #1. positions x,y,t
-    #         #2. output values B,out_channels
-    #     """
-    #     x = self.out_cross_attn(data, latents) + data
-    #     y = self.to_logits(x)
-    #     return y
-
-    # def densify(self, positions, predictions, input):
-    #     b,h,w,t,_ = input.shape
-    #     output = torch.zeros((b,h,w,t,self.output_channels), dtype=input.dtype, device=output.device)
-
     def forward(self, input):
         """
         1. we expect x: B,T,H,W,C
@@ -217,13 +248,16 @@ class SparseInputPerceiver(nn.Module):
             (e.g: what about outputting only where difference is greater than threshold?)
         3. so far: predict from latent space only
         """
-        input = rearrange(input, 't b c h w -> b h w t c')
-        b = len(input)
-
-        pos, vals, masks = self.sparsify_v1(input)
-
-        enc_pos = fourier_encode(pos, self.num_fourier_features)
-        enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
+        num_tbins = len(input)
+        with torch.no_grad():
+            input = rearrange(input, 't b c h w -> b h w t c')
+            #patchify
+            p = 4
+            input = rearrange(input, 'b (h p1) (w p2) t c -> b h w t (p1 p2 c)', p1 = p, p2 = p)
+            b = len(input)
+            pos, vals, masks = self.sparsify_v1(input)
+            enc_pos = fourier_encode(pos, self.num_fourier_features)
+            enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
 
         data = torch.cat((vals, enc_pos), dim = -1)
         data = rearrange(data, 'b ... d -> b (...) d')
@@ -232,17 +266,29 @@ class SparseInputPerceiver(nn.Module):
         latents = repeat(latents, 'n d -> b n d', b = b)
         latents = self.perceiver(latents, data, masks)
 
-        return self.to_logits(latents)
+        # linear model of trajectories prediction
+        # in theory we should use linear assignement at the trajectory level...
+        # time = torch.linspace(0,1,num_tbins)[:,None,None,None].to(latents)
+        # c1 = self.to_boxes_a(latents)[None,:]
+        # c2 = self.to_boxes_b(latents)[None,:]
+        # boxes = c1 * time + c2
+        # logits = self.to_logits(latents)
+        # logits = repeat(logits, 'b n d -> t b n d', t = num_tbins)
+        # output = torch.cat((boxes, logits), dim=-1)
 
+        output = self.to_logits(latents)
+        output = rearrange(output, 'b (n t) d -> t b n d', t = num_tbins)
+        output = output.contiguous()
+        return output
 
 
 
 
 if __name__ == '__main__':
     b,c,h,w,t = 3,3,64,64,10
-    x = torch.randn(b,h,w,t,c)
+    x = torch.randn(t,b,c,h,w)
     x = (x.abs() > 2) * x
-    net = SparseInputPerceiver(3, 10)
+    net = SparseInputPerceiver(3, 11+4)
     y = net(x)
     print(y.shape)
 

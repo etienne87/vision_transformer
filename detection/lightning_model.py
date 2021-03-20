@@ -56,7 +56,7 @@ class DetectionModel(pl.LightningModule) :
         if hasattr(self.model, "reset"):
             self.model.reset(reset_mask)
         out = self.model.forward(x)
-        out = time_to_batch(out)[0]
+        out = time_to_batch(out)[0] #if our models is not based on time-step
         out = {'pred_logits': out[...,4:], 'pred_boxes': out[..., :4].sigmoid()}
         return out
 

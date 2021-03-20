@@ -17,6 +17,8 @@ def download_mnist(url='https://www.di.ens.fr/~lelarge/MNIST.tar.gz',
     tar_name = os.path.basename(url)
     tar_filename = os.path.join(path, tar_name)
     filename = os.path.join(path, 'MNIST')
+    if not os.path.exists(path):
+        os.mkdir(path)
     if not os.path.exists(tar_filename):
         filedata = urllib.request.urlretrieve(url, tar_filename)
     if not os.path.exists(filename):

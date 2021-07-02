@@ -9,16 +9,13 @@ import random
 import cv2
 
 from utils import box_api
-#from moving_mnist.moving_mnist_detection import make_moving_mnist
-from moving_mnist.moving_mnist_detection import MovingMNISTDataset
+from moving_mnist.moving_mnist_detection import MovingMNISTDetDataset
 
 
 
 def show_mnist_det(tbins=10, num_workers=2, batch_size=8, height=128, width=128, min_objects=1, max_objects=2, max_frames_per_video=10, max_frames_per_epoch=10000, delay=5, epochs=1):
-    #dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height, width, max_frames_per_video, max_frames_per_epoch, min_objects=min_objects, max_objects=max_objects, train=False)
     show_batchsize = batch_size
-
-    dataloader = MovingMNISTDataset(
+    dataloader = MovingMNISTDetDataset(
         tbins,
         num_workers,
         batch_size,

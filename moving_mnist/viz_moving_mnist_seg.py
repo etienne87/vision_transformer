@@ -6,13 +6,23 @@ import time
 import numpy as np
 import cv2
 
-from moving_mnist_segmentation import make_moving_mnist
+from moving_mnist_segmentation import MovingMNISTSegDataset
 
 
 
 def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max_frames_per_epoch=10000, max_frames_per_video=100, colorization=False):
-    dataloader, label_map = make_moving_mnist(tbins, num_workers, batch_size, height=height, width=width, max_frames_per_epoch=max_frames_per_epoch, max_frames_per_video=max_frames_per_video, colorization_problem=colorization)
-    show_batchsize = batch_size 
+    show_batchsize = batch_size
+    dataloader = MovingMNISTSegDataset(
+        tbins,
+        num_workers,
+        batch_size,
+        height,
+        width,
+        max_frames_per_video,
+        10000,
+        True)
+
+    label_map = ["background"] + [str(i) for i in range(10)]
 
     start = 0
     nrows = 2 ** ((show_batchsize.bit_length() - 1) // 2)
@@ -43,11 +53,11 @@ def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max
 
             cv2.imshow('dataset', im3)
 
-            key = cv2.waitKey(0)
+            key = cv2.waitKey(5)
             if key == 27:
                 quit = True
                 break
-        
+
         if quit:
             break
         sys.stdout.write('\rtime: %f' % (runtime))
@@ -59,7 +69,7 @@ def show_mnist(tbins=10, num_workers=1, batch_size=8, height=128, width=128, max
 if __name__ == '__main__':
     import fire
     fire.Fire(show_mnist)
-   
+
 
 
 

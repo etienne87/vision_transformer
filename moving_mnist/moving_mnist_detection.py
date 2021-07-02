@@ -167,7 +167,7 @@ def collate_fn(data_list):
             'mask_keep_memory': resets, "video_infos": video_infos}
 
 
-class MovingMNISTDataset(StreamDataLoader):
+class MovingMNISTDetDataset(StreamDataLoader):
     """Creates the dataloader for moving mnist
 
     Args:

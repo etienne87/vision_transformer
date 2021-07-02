@@ -71,7 +71,7 @@ class StateFulCell(nn.Module):
         """
         self.hidden.detach()
         ndim = self.hidden.ndim-1
-        mask = mask[:, *[None]*ndim]
+        mask = mask.reshape(mask.shape + (1,)*ndim)
         self.hidden *= mask
 
 

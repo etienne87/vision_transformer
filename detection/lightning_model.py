@@ -14,7 +14,6 @@ import cv2
 import numpy as np
 import skvideo.io
 
-from moving_mnist.moving_mnist_detection import make_moving_mnist
 from core.temporal import time_to_batch
 from detection.hungarian_loss import HungarianMatcher, SetCriterion
 from detection.box_ops import box_xyxy_to_cxcywh

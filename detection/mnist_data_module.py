@@ -7,11 +7,12 @@ import torchvision
 import argparse
 import cv2
 
-from moving_mnist.moving_mnist_detection import make_moving_mnist
+from moving_mnist.moving_mnist_detection import MovingMNISTDetDataset
 from torchvision.utils import make_grid
 
 import numpy as np
 import random
+import inspect
 
 
 class DetMNISTDataModule(pl.LightningDataModule):
@@ -19,7 +20,10 @@ class DetMNISTDataModule(pl.LightningDataModule):
     def __init__(self, hparams: argparse.Namespace):
         super().__init__()
         self.hparams = hparams
-        self.co_args = set(self.hparams.__dict__.keys()).intersection(make_moving_mnist.__code__.co_varnames)
+        a_signature = inspect.signature(MovingMNISTDetDataset)
+        parameters = a_signature.parameters
+        parameter_list = list(parameters)
+        self.co_args = set(self.hparams.__dict__.keys()).intersection(parameter_list)
 
     def train_dataloader(self):
         seed = random.randint(0, 100)
@@ -30,13 +34,13 @@ class DetMNISTDataModule(pl.LightningDataModule):
             kwargs['height'] = 64 * 2**scale
             kwargs['width'] = 64 * 2**scale
             print('height, width: ', kwargs['height'], kwargs['width'])
-        train_dataloader, _ = make_moving_mnist(**kwargs) 
-        return train_dataloader   
-        
+        train_dataloader = MovingMnistDetDataset(**kwargs)
+        return train_dataloader
+
     def val_dataloader(self):
         seed = random.randint(0, 100)
         kwargs = {k:self.hparams.__dict__[k] for k in self.co_args}
         kwargs['max_frames_per_epoch'] = self.hparams.val_max_frames_per_epoch
         kwargs['random_seed'] = random.randint(0, 100)
-        dataloader, _ = make_moving_mnist(**kwargs)
-        return dataloader 
+        val_dataloader = MovingMnistDetDataset(**kwargs)
+        return val_dataloader

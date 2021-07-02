@@ -36,7 +36,8 @@ import numpy as np
 import uuid
 
 from moving_mnist import moving_box as toy
-from moving_mnist.multistream_dataloader import MultiStreamDataLoader, MultiStreamDataset
+from pytorch_stream_dataloader.stream_dataloader import StreamDataLoader
+from pytorch_stream_dataloader.stream_dataset import StreamDataset
 
 from torchvision import datasets, transforms
 from functools import partial
@@ -143,6 +144,7 @@ class MovingMnist(toy.Animation):
                 targets.append(target)
 
             imgs = np.concatenate(imgs, axis=0)
+            imgs = torch.from_numpy(imgs)
 
             video_info = (self.video_info, self.steps * self.video_info.delta_t, self.tbins * self.video_info.delta_t)
             yield imgs, targets, reset, video_info
@@ -165,33 +167,7 @@ def collate_fn(data_list):
             'mask_keep_memory': resets, "video_infos": video_infos}
 
 
-class MovingMNISTDetDataset(MultiStreamDataLoader):
-    """Multi-MNIST Animations Parallel Streamer
-
-    Args:
-        datasets: MultiStream datasets with MovingMnist streamers
-        collate_fn: above batch collation function
-        parallel: use several workers or not
-    """
-    def __init__(self, datasets, collate_fn, parallel=True):
-        super().__init__(datasets, collate_fn, parallel)
-        self.vis_func = lambda img:(np.moveaxis(img, 0, 2).copy()*255).astype(np.int32)
-
-    def get_vis_func(self):
-        return self.vis_func
-
-    def __len__(self):
-        """Here we know in advance the exact duration of each stream.
-        In practice you can either discard this function or make an estimate using a few streams.
-        """
-        args = self.datasets[0].stream_kwargs
-        mini_epochs = len(self.datasets[0].stream_list) // self.datasets[0].batch_size
-        max_batch_per_epoch = mini_epochs * args['max_frames_per_video'] // args['tbins']
-        return max_batch_per_epoch
-
-
-def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=256,
-                      max_frames_per_video=100, max_frames_per_epoch=1000, min_objects=1, max_objects=2, train=True, random_seed=0):
+class MovingMNISTDataset(StreamDataLoader):
     """Creates the dataloader for moving mnist
 
     Args:
@@ -200,22 +176,24 @@ def make_moving_mnist(tbins=10, num_workers=1, batch_size=8, height=256, width=2
         batch_size: number of animations
         height: animation height
         width: animation width
-        max_frames_per_video: maximum frames per animation
+        max_frames_per_video: maximum frames per animation (must be greater than tbins)
         max_frames_per_epoch: maximum frames per epoch
         train: use training part of MNIST dataset.
     """
-    if train:
-        print('DATALOADER IS IN TRAINING MODE')
-    else:
-        print('DATALOADER IS IN VALIDATION MODE')
-    max_frames_per_video = max(max_frames_per_video, tbins)
-    height, width, cin = height, width, 3
-    n = max_frames_per_epoch // max_frames_per_video
-    dummy_list = list(range(n))
-    parallel = num_workers > 0
 
-    datasets = MultiStreamDataset.split_datasets(dummy_list, batch_size=batch_size, max_workers=num_workers, streamer=MovingMnist, random_seed=random_seed, tbins=tbins, max_frames_per_video=max_frames_per_video, height=height, width=width, min_objects=min_objects, max_objects=max_objects, train=train)
-    dataset = MovingMNISTDetDataset(datasets, collate_fn, parallel=parallel)
-    dataset.label_map = [str(i) for i in range(10)]
+    def __init__(self, tbins, num_workers, batch_size, height, width,
+                 max_frames_per_video, max_frames_per_epoch, train):
 
-    return dataset, dataset.label_map
+        assert max_frames_per_video >= tbins
+        height, width, cin = height, width, 3
+        n = max_frames_per_epoch // max_frames_per_video
+        stream_list = list(range(n))
+
+        def iterator_fun(idx): return MovingMnist(idx, tbins, height, width, 3, 15, 1, 2, train, max_frames_per_video)
+
+        dataset = StreamDataset(stream_list, iterator_fun, batch_size, "data", None)
+        super().__init__(dataset, num_workers, collate_fn)
+        self.vis_func = lambda img: (np.moveaxis(img, 0, 2).copy() * 255).astype(np.int32)
+
+    def get_vis_func(self):
+        return self.vis_func

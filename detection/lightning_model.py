@@ -13,6 +13,7 @@ import random
 import cv2
 import numpy as np
 import skvideo.io
+import tqdm
 
 from core.temporal import time_to_batch
 from detection.hungarian_loss import HungarianMatcher, SetCriterion
@@ -234,7 +235,7 @@ class DetectionModel(pl.LightningModule) :
             window_name = 'detection'
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
-        for batch_nb, batch in enumerate(islice(dataloader, num_batches)):
+        for batch_nb, batch in tqdm.tqdm(enumerate(islice(dataloader, num_batches)), total=num_batches):
             images = batch["inputs"].cpu().clone().data.numpy()
 
             batch["inputs"] = batch["inputs"].to(self.device)

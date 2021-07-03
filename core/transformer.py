@@ -2,8 +2,18 @@ import math
 import torch
 import torch.nn as nn
 from einops import rearrange
+import revtorch as rv
 import torch.nn.functional as f
-from core.relative_embedding import RelativePositionBias
+
+
+class RevZero(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+        self.scale = nn.Parameter(torch.zeros((1,), dtype=torch.float32))
+
+    def forward(self, x, **kwargs):
+        return self.fn(x, **kwargs) * self.scale
 
 
 def normalize(t, eps=1e-8):
@@ -148,7 +158,7 @@ class XCA(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
         qkv = qkv.permute(2, 0, 3, 1, 4)
@@ -195,28 +205,55 @@ class TransformerAN(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, mlp_dim, dropout, rezero=True):
+    def __init__(self, dim, depth, heads, mlp_dim, dropout, rezero=True, attn='XCA'):
         super().__init__()
         self.layers = nn.ModuleList([])
+
+        attn_fn = XCA if attn == 'XCA' else Attention
         #ReZero
         for _ in range(depth):
             if rezero:
                 self.layers.append(nn.ModuleList([
-                        #ReZero(Attention(dim, heads=heads, dim_qk=None, dropout=dropout)),
-                        ReZero(XCA(dim, heads)),
+                        ReZero(attn_fn(dim, heads)),
                         ReZero(FeedForward(dim, mlp_dim, dropout=dropout))
                     ]))
             else:
                 for _ in range(depth):
                     self.layers.append(nn.ModuleList([
-                        Residual(PreNorm(dim, Attention(dim, heads = heads, dropout = dropout))),
+                        Residual(PreNorm(dim, attn_fn(dim, heads = heads, dropout = dropout))),
                         Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
                     ]))
 
-    def forward(self, x, mask = None, pos=None):
+    def forward(self, x, mask = None):
         for attn, ff in self.layers:
-            x = attn(x, mask = mask, pos=pos)
+            x = attn(x, mask = mask)
             x = ff(x)
+        return x
+
+
+class ReversibleTransformer(nn.Module):
+    """O(1) backprop memory cost thanks revtorch"""
+    def __init__(self, dim, depth, heads, mlp_dim, dropout, rezero=False, attn='XCA'):
+        super().__init__()
+
+        attn_fn = XCA if attn == 'XCA' else Attention
+        self.entry = nn.Parameter(torch.FloatTensor([0]))
+        blocks = []
+        for _ in range(depth):
+            if rezero:
+                f_func = RevZero(attn_fn(dim, heads=heads, dropout=dropout))
+                g_func = RevZero(FeedForward(dim, mlp_dim, dropout=dropout))
+            else:
+                f_func = PreNorm(dim, attn_fn(dim, heads=heads, dropout=dropout))
+                g_func = PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
+            block = rv.ReversibleBlock(f_func, g_func)
+            blocks.append(block)
+
+        self.layers = rv.ReversibleSequence(nn.ModuleList(blocks))
+
+    def forward(self, x):
+        x = self.entry + x
+        x = self.layers(x)
         return x
 
 

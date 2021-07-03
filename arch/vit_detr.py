@@ -1,16 +1,14 @@
 """
-Transformer for Detection 
+Transformer for Detection
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
 from core.conv import ConvLayer
-from core.transformer import Transformer, ReZero
-from core.reversible_transformer import ReversibleTransformer
-from core.positional_encoding import FixedPositionalEncoding, LearnedPositionalEncoding
+from core.transformer import Transformer, ReZero, ReversibleTransformer
 from core.positional_encoding2d import PositionEmbeddingLearned, PositionEmbeddingSine
-from core.pooling import QuerySetAttention, SlotAttention, FunnelLayer2d
+from core.pooling import QuerySetAttention, SlotAttention
 from einops import rearrange
 
 
@@ -25,17 +23,13 @@ class DetViT(nn.Module):
         self.flatten_dim_in = patch_dim * patch_dim * in_channels
         self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
 
-        #self.position_encoding = LearnedPositionalEncoding(max_len, embedding_dim)
-        #self.position_encoding = FixedPositionalEncoding(max_len, embedding_dim)
         self.position_encoding = PositionEmbeddingSine(embedding_dim//2)
         self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
         # self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
-
-        self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads) 
+        self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads)
 
         # Requires smaller learning rate
         #self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
-        #self.pool = lambda x:x
 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)
         self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
@@ -61,7 +55,7 @@ class DetViT(nn.Module):
             x = self.linear_encoding(x)
 
         x = self.norm(x)
-        
+
         #2d embedding
         pos = self.position_encoding.forward(x, b, h//p, w//p)
         pos = rearrange(pos, 'b c h w -> b (h w) c')

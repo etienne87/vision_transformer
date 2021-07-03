@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     net2 = PositionEmbeddingLearned(num_feats)
     y2 = net2(x)
-    
+
     import cv2
     from einops import rearrange
     p = int(math.sqrt(y.shape[1]))

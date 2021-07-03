@@ -141,6 +141,8 @@ class MovingMnist(toy.Animation):
             for t in range(self.tbins):
                 img, target = self.step()
                 imgs.append(img[None].copy())
+
+                target = torch.from_numpy(target)
                 targets.append(target)
 
             imgs = np.concatenate(imgs, axis=0)
@@ -194,6 +196,7 @@ class MovingMNISTDetDataset(StreamDataLoader):
         dataset = StreamDataset(stream_list, iterator_fun, batch_size, "data", None)
         super().__init__(dataset, num_workers, collate_fn)
         self.vis_func = lambda img: (np.moveaxis(img, 0, 2).copy() * 255).astype(np.int32)
+        self.label_map = [str(i) for i in range(10)]
 
     def get_vis_func(self):
         return self.vis_func

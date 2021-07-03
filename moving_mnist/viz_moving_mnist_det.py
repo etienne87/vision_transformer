@@ -25,7 +25,7 @@ def show_mnist_det(tbins=10, num_workers=2, batch_size=8, height=128, width=128,
         10000,
         True)
 
-    label_map = ["background"] + [str(i) for i in range(10)]
+    label_map = [str(i) for i in range(10)]
 
     start = 0
     nrows = 2 ** ((show_batchsize.bit_length() - 1) // 2)

@@ -233,7 +233,6 @@ class DetectionModel(pl.LightningModule) :
 
         if show_video:
             window_name = 'detection'
-            cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
         for batch_nb, batch in tqdm.tqdm(enumerate(islice(dataloader, num_batches)), total=num_batches):
             images = batch["inputs"].cpu().clone().data.numpy()

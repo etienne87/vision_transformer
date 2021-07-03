@@ -19,20 +19,23 @@ class DetViT(nn.Module):
         super().__init__()
 
         self.patch_dim = patch_dim
+        self.num_queries = num_queries
 
         self.flatten_dim_in = patch_dim * patch_dim * in_channels
         self.linear_encoding = nn.Linear(self.flatten_dim_in, embedding_dim)
 
         self.position_encoding = PositionEmbeddingSine(embedding_dim//2)
-        self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+        self.encoder = Transformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout, rezero=True, attn='XCA')
         # self.encoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
+
         self.pool = QuerySetAttention(num_queries, embedding_dim, num_heads)
 
-        # Requires smaller learning rate
-        #self.pool = SlotAttention(num_queries, embedding_dim, iters=3, hidden_dim=hidden_dim)
+        #YOLOS: one sequence only
+        #self.det_queries = nn.Parameter(torch.randn(1, num_queries, embedding_dim))
+        #nn.init.xavier_uniform_(self.det_queries)
 
         self.linear_decoding = nn.Linear(embedding_dim, out_channels)
-        self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
+        self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout, rezero=True, attn='XCA')
         # self.decoder = ReversibleTransformer(embedding_dim, num_layers, num_heads, hidden_dim, dropout)
 
         if hybrid:
@@ -61,9 +64,17 @@ class DetViT(nn.Module):
         pos = rearrange(pos, 'b c h w -> b (h w) c')
         x += pos
 
+        # cat det queries
+        #queries = self.det_queries.expand(b,self.num_queries, x.size(2))
+        #x = torch.cat((x, queries), dim=1)
+
         x = self.encoder(x)
         x = self.pool(x)
         x = self.decoder(x)
+
+        #split det queries
+        #x = x[:,-self.num_queries:,:]
+
         y = self.linear_decoding(x)
         return y
 

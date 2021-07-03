@@ -32,7 +32,7 @@ class DetMNISTDataModule(pl.LightningDataModule):
             scale = np.random.randint(0, 2)
             kwargs['height'] = 64 * 2**scale
             kwargs['width'] = 64 * 2**scale
-            print('height, width: ', kwargs['height'], kwargs['width'])
+            print('Size: height, width: ', kwargs['height'], kwargs['width'])
         kwargs['train'] = True
         train_dataloader = MovingMNISTDetDataset(**kwargs)
         return train_dataloader

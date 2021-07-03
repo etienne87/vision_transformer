@@ -148,10 +148,10 @@ class XCA(nn.Module):
     matrix (Q^T K \\in d_h \\times d_h)
     """
 
-    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
+    def __init__(self, dim, heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
-        self.num_heads = num_heads
-        self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
+        self.num_heads = heads
+        self.temperature = nn.Parameter(torch.ones(heads, 1, 1))
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
@@ -220,7 +220,7 @@ class Transformer(nn.Module):
             else:
                 for _ in range(depth):
                     self.layers.append(nn.ModuleList([
-                        Residual(PreNorm(dim, attn_fn(dim, heads = heads, dropout = dropout))),
+                        Residual(PreNorm(dim, attn_fn(dim, heads))),
                         Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
                     ]))
 

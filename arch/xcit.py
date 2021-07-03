@@ -370,7 +370,7 @@ class XCiT(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'dist_token'}
 
-    def forward_tokens(self, x):
+    def forward(self, x):
         B, C, H, W = x.shape
 
         x, (Hp, Wp) = self.patch_embed(x)
@@ -384,7 +384,7 @@ class XCiT(nn.Module):
         for blk in self.blocks:
             x = blk(x, Hp, Wp)
 
-        return x
+        return self.head(x)
 
     def forward_features(self, x):
         B, C, H, W = x.shape
@@ -405,7 +405,7 @@ class XCiT(nn.Module):
         x = self.norm(x)[:, 0]
         return x
 
-    def forward(self, x):
+    def forward_class(self, x):
         x = self.forward_features(x)
         x = self.head(x)
 

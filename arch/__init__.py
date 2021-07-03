@@ -7,3 +7,4 @@ from .vit_detr import DetViT
 from .cnn import CNN
 from .unet_conv import UnetConv
 from .perceiver_sparse_input import SparseInputPerceiver
+from .xcit import XCiT

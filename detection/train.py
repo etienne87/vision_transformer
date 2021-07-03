@@ -22,17 +22,19 @@ import arch
 def get_model(model_name, num_layers=3):
     if model_name == 'SparseInputPerceiver':
         model = getattr(arch, model_name)(3, 11 + 4, depth=num_layers)
+    elif model_name == 'XCiT':
+        model = getattr(arch, model_name)(num_classes=11+4, depth=num_layers, eta=1)
     elif model_name == 'UnetConv':
         model = getattr(arch, model_name)(3, 11 + 4, num_layers_enc=4, num_layers_dec=2)
     else:
         model = getattr(arch, model_name)(3, 11 + 4, num_layers=num_layers, dropout=0.0)
-    if model_name == 'ViT' or model_name == 'DetViT' or model_name == 'CNN4' or model_name == 'UnetConv':
+    if model_name in ['ViT', 'XCiT', 'DetViT', 'CNN4', 'UnetConv']:
         model = SequenceWise(model)
     return model
 
 
 def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, tbins=12, batch_size=64, num_classes=11, num_workers=2, max_frames_per_video=20,
-    demo_every=2, val_every=1,
+    demo_every=2, val_every=1, checkpoint=None,
     max_frames_per_epoch=10000, val_max_frames_per_epoch=5000, min_objects=1, max_objects=2, precision=32, resume=False, just_val=False, just_demo=False,
     eos_coef=0.1, bbox_loss_coef=1, giou_loss_coef=1, cost_class=1, cost_bbox=5, cost_giou=2
     ):
@@ -51,11 +53,14 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     model = DetectionModel(net, params)
     dm = DetMNISTDataModule(params)
 
-    if resume or just_demo or just_val:
+    if checkpoint is not None:
+        ckpt = checkpoint
+    elif resume or just_demo or just_val:
         ckpt = search_latest_checkpoint(train_dir)
-        print("resume from: ", ckpt)
     else:
         ckpt = None
+
+    print("resume from: ", ckpt)
 
     if params.just_demo or params.just_val:
         checkpoint = torch.load(ckpt)

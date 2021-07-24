@@ -54,7 +54,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         save_dir=os.path.join(train_dir, 'logs'),
         version=1)
 
-    callbacks = [ModelCallback(params.demo_every), checkpoint_callback]
+    callbacks = [ModelCallback(dm, params.demo_every), checkpoint_callback]
 
     if just_demo:
         checkpoint = torch.load(ckpt)

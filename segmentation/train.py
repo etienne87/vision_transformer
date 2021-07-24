@@ -10,7 +10,7 @@ from segmentation.lightning_model import SegmentationModel
 from segmentation.mnist_data_module import SegMNISTDataModule
 from core.temporal import SequenceWise
 from utils.main_tools import search_latest_checkpoint
-from utils.main_tools import ModelCallbacks
+from utils.main_tools import ModelCallback
 
 import arch
 
@@ -62,7 +62,7 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
         model.load_state_dict(checkpoint['state_dict'])
         model.demo_video(dm.val_dataloader())
     else:
-        trainer = pl.Trainer(checkpoint_callback=checkpoint_callback, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
+        trainer = pl.Trainer(callbacks=callbacks, logger=logger, gpus=1, precision=precision, resume_from_checkpoint=ckpt)
         trainer.fit(model, dm)
 
 

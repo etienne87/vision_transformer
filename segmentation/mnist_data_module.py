@@ -37,3 +37,6 @@ class SegMNISTDataModule(pl.LightningDataModule):
         kwargs['train'] = False
         dataloader = MovingMNISTSegDataset(**kwargs)
         return dataloader
+
+    def test_dataloader(self):
+        return self.val_dataloader()

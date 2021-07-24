@@ -7,17 +7,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
-from arch.unet import unet_layers, Unet 
-from core.conv_rnn import ConvRNN
+from arch.unet import unet_layers, Unet
 from core.conv import ResBlock, ConvLayer
 from core.temporal import SequenceWise
 from einops import rearrange
-from core.axial_attention import AxialTransformer
-from core.axial_positional_embedding import AxialPositionalEmbeddingImage
 
 
 class UpConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=5, padding=2): 
+    def __init__(self, in_channels, out_channels, kernel_size=5, padding=2):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -38,14 +35,13 @@ class UnetConv(nn.Module):
     """
     def __init__(self, in_channels, out_channels, num_layers_enc, num_layers_dec, base=8, coords=True):
         super().__init__()
-        base = 8 
+        base = 8
         downs = [base*2**(i+1) for i in range(num_layers_enc)]
         ups = [base*2**(num_layers_enc-i) for i in range(num_layers_dec)]
 
         down = lambda x,y:ResBlock(x,y,stride=2)
         midd = lambda x,y:ConvLayer(x,y)
         up = lambda x,y:UpConv(x,y)
-        # up = lambda x,y:UpAxial(x,y)
 
         enc, dec = unet_layers(down, midd, up, base, downs, ups[0]*2, ups)
         self.unet = Unet(enc, dec)
@@ -53,41 +49,30 @@ class UnetConv(nn.Module):
         self.head = ConvLayer(in_channels + 2 * coords, base, 5, 2, 2, norm='BatchNorm2d')
 
         self.coords = coords
-        self.predictor = nn.Conv2d(ups[-1] + 2 * coords, out_channels, 1, 1, 0)
+        self.predictor = nn.Conv2d(ups[-1], out_channels, 1, 1, 0)
         self.height, self.width = -1, -1
-
-        # embedding_dim = ups[-1] + 2 * coords
-        # self.linear_decoding = nn.Linear(embedding_dim, out_channels)
-        # self.decoder = Transformer(embedding_dim, 2, num_heads, hidden_dim, dropout)
 
     def _generate_grid(self, height, width):
         self.height = height
         self.width = width
         grid_h, grid_w = torch.meshgrid([torch.linspace(-1., 1., height), torch.linspace(-1., 1., width)])
-        self.grid = torch.cat((grid_w[None, None, :, :], grid_h[None, None, :, :]), 1) 
+        self.grid = torch.cat((grid_w[None, None, :, :], grid_h[None, None, :, :]), 1)
 
     def add_coords(self, y):
         height, width = y.shape[-2:]
         if [height, width] != [self.height, self.width]:
             self._generate_grid(height, width)
             self.grid.data = self.grid.data.type_as(y)
-        grid = self.grid.expand(len(y),2,height,width) 
+        grid = self.grid.expand(len(y),2,height,width)
         y = torch.cat((y, grid), dim=1)
         return y
 
-    def forward(self, x): 
+    def forward(self, x):
         if self.coords:
             x = self.add_coords(x)
-        y = self.head(x) 
+        y = self.head(x)
         y = self.unet(y)
-
-        if self.coords:
-            y = self.add_coords(y)
-
         y = self.predictor(y)
-        y = rearrange(y, 'b c h w -> b (h w) c')
-        # y = self.decoder(y)
-
         return y
 
 

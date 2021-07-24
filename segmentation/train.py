@@ -10,15 +10,21 @@ from segmentation.lightning_model import SegmentationModel
 from segmentation.mnist_data_module import SegMNISTDataModule
 from core.temporal import SequenceWise
 from utils.main_tools import search_latest_checkpoint
+from utils.main_tools import ModelCallbacks
 
 import arch
 
 def unet_conv(num_layers):
     return SequenceWise(arch.UnetConv(3,11,num_layers_enc=num_layers, num_layers_dec=num_layers))
 
+def vit(num_layers):
+    return SequenceWise(arch.ViT(3,11,num_layers=num_layers))
+
 def get_model(model_name, num_layers=3):
     fun = globals()[model_name]
     return fun(num_layers)
+
+
 
 
 def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=64, max_epochs=100, tbins=1, batch_size=64, num_classes=11, num_workers=2, max_frames_per_video=100,
@@ -47,6 +53,8 @@ def train_mnist(train_dir, model_name, num_layers=3, lr=1e-3, height=64, width=6
     logger = TestTubeLogger(
         save_dir=os.path.join(train_dir, 'logs'),
         version=1)
+
+    callbacks = [ModelCallback(params.demo_every), checkpoint_callback]
 
     if just_demo:
         checkpoint = torch.load(ckpt)

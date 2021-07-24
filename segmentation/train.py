@@ -20,6 +20,9 @@ def unet_conv(num_layers):
 def vit(num_layers):
     return SequenceWise(arch.ViT(3,11,num_layers=num_layers))
 
+def xcit(num_layers):
+    return SequenceWise(arch.XCiT(patch_size=16, in_chans=3, num_classes=11*16**2, depth=num_layers))
+
 def get_model(model_name, num_layers=3):
     fun = globals()[model_name]
     return fun(num_layers)

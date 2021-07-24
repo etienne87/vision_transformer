@@ -15,6 +15,7 @@ from functools import partial
 from timm.models.vision_transformer import _cfg, Mlp
 from timm.models.registry import register_model
 from timm.models.layers import DropPath, trunc_normal_, to_2tuple
+from einops import rearrange
 
 
 
@@ -299,8 +300,8 @@ class XCiT(nn.Module):
 
     def __init__(self, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768,
                  depth=12, num_heads=12, mlp_ratio=4., qkv_bias=True, qk_scale=None,
-                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
-                 cls_attn_layers=2, use_pos=True, patch_proj='linear', eta=None, tokens_norm=False):
+                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, norm_layer=nn.LayerNorm,
+                 cls_attn_layers=2, use_pos=True, patch_proj='linear', eta=0.0, tokens_norm=False):
         """
         Args:
             img_size (int, tuple): input image size
@@ -326,6 +327,7 @@ class XCiT(nn.Module):
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
+        self.patch_size = patch_size
 
         self.patch_embed = ConvPatchEmbed(embed_dim=embed_dim,
                                           patch_size=patch_size)
@@ -370,22 +372,6 @@ class XCiT(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'dist_token'}
 
-    def forward(self, x):
-        B, C, H, W = x.shape
-
-        x, (Hp, Wp) = self.patch_embed(x)
-
-        if self.use_pos:
-            pos_encoding = self.pos_embeder(B, Hp, Wp).reshape(B, -1, x.shape[1]).permute(0, 2, 1)
-            x = x + pos_encoding
-
-        x = self.pos_drop(x)
-
-        for blk in self.blocks:
-            x = blk(x, Hp, Wp)
-
-        return self.head(x)
-
     def forward_features(self, x):
         B, C, H, W = x.shape
 
@@ -414,11 +400,39 @@ class XCiT(nn.Module):
         else:
             return x
 
+    def forward_image(self, x):
+        B, C, H, W = x.shape
+
+        x, (Hp, Wp) = self.patch_embed(x)
+
+        if self.use_pos:
+            pos_encoding = self.pos_embeder(B, Hp, Wp).reshape(B, -1, x.shape[1]).permute(0, 2, 1)
+            x = x + pos_encoding
+
+        x = self.pos_drop(x)
+
+        for blk in self.blocks:
+            x = blk(x, Hp, Wp)
+
+        x = self.head(x)
+
+        h =  H // self.patch_size
+        w =  W // self.patch_size
+        y = rearrange(x, 'b (h w) (p1 p2 d) -> b d (h p1) (w p2)', h=h, w=w, p1=self.patch_size, p2=self.patch_size)
+
+        return y
+
+    def forward(self, x):
+        # segmentation mode
+        return self.forward_image(x)
+
+
+
 
 
 
 if __name__ == '__main__':
-    xcit = XCiT(16, 3, 11, eta=1, drop_rate=0.2, attn_drop_rate=0.1, drop_path_rate=0.1)
+    xcit = XCiT(16, 3, 11*16**2, eta=1, drop_rate=0.2, attn_drop_rate=0.1, drop_path_rate=0.1)
     x = torch.randn(1,3,128,128)
-    y = xcit.forward_tokens(x)
+    y = xcit.forward(x)
     print(y.shape)

@@ -11,15 +11,14 @@ import os
 import argparse
 import cv2
 import numpy as np
-from types import SimpleNamespace
+import tqdm
+import skvideo.io
 
 from torchvision.utils import make_grid
-
+from types import SimpleNamespace
 from kornia.utils import one_hot, mean_iou
 from kornia.losses import DiceLoss, dice_loss
 from core.temporal import time_to_batch
-
-import skvideo.io
 
 
 
@@ -92,7 +91,7 @@ class SegmentationModel(pl.LightningModule) :
         out_video = skvideo.io.FFmpegWriter(out_name, outputdict={'-vcodec': 'libx264', '-preset':'slow'})
 
         with torch.no_grad() :
-            for batch_idx, batch in enumerate(dataloader) :
+            for batch_idx, batch in tqdm.tqdm(enumerate(dataloader)):
                 x, y, reset_mask = batch["inputs"], batch["labels"], batch["mask_keep_memory"]
 
                 x = x.to(self.device)
@@ -125,7 +124,7 @@ class SegmentationModel(pl.LightningModule) :
                     grid3[mask_background] = 0
                     final_grid = grid3.astype(np.uint8)
 
-                    frame = np.concatenate([gridx, final_grid, grid_rgb], axis=0)
+                    frame = np.concatenate([gridx, final_grid, grid_rgb], axis=1)
                     cv2.imshow("histos",frame)
 
                     out_video.writeFrame(frame[...,::-1])

@@ -77,7 +77,7 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-                 min_objects=1, max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist_data", colorized=True):
+                 min_objects=1, max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist", colorized=True):
         self.train = train
         self.channels = channels
         self.steps = 0

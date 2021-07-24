@@ -7,6 +7,7 @@ import torchvision
 import argparse
 import cv2
 import random
+import inspect
 
 from moving_mnist.moving_mnist_segmentation import MovingMNISTSegDataset
 from torchvision.utils import make_grid
@@ -25,16 +26,14 @@ class SegMNISTDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         seed = random.randint(0, 100)
         kwargs = {k:self.hparams.__dict__[k] for k in self.co_args}
-        kwargs['random_seed'] = random.randint(0, 100)
         kwargs['train'] = True
-        train_dataloader, _ = MovingMNISTSegDataset(**kwargs)
+        train_dataloader = MovingMNISTSegDataset(**kwargs)
         return train_dataloader
 
     def val_dataloader(self):
         seed = random.randint(0, 100)
         kwargs = {k:self.hparams.__dict__[k] for k in self.co_args}
         kwargs['max_frames_per_epoch'] = self.hparams.val_max_frames_per_epoch
-        kwargs['random_seed'] = random.randint(0, 100)
         kwargs['train'] = False
-        dataloader, _ = MovingMNISTSegDataset(**kwargs)
+        dataloader = MovingMNISTSegDataset(**kwargs)
         return dataloader

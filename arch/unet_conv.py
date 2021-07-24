@@ -37,7 +37,7 @@ class UnetConv(nn.Module):
         super().__init__()
         base = 8
         downs = [base*2**(i+1) for i in range(num_layers_enc)]
-        ups = [base*2**(num_layers_enc-i) for i in range(num_layers_dec)]
+        ups = [base*2**(num_layers_dec-i) for i in range(num_layers_dec)]
 
         down = lambda x,y:ResBlock(x,y,stride=2)
         midd = lambda x,y:ConvLayer(x,y)
@@ -46,7 +46,7 @@ class UnetConv(nn.Module):
         enc, dec = unet_layers(down, midd, up, base, downs, ups[0]*2, ups)
         self.unet = Unet(enc, dec)
 
-        self.head = ConvLayer(in_channels + 2 * coords, base, 5, 2, 2, norm='BatchNorm2d')
+        self.head = ConvLayer(in_channels + 2 * coords, base, 5, 1, 2, norm='BatchNorm2d')
 
         self.coords = coords
         self.predictor = nn.Conv2d(ups[-1], out_channels, 1, 1, 0)
@@ -79,6 +79,6 @@ class UnetConv(nn.Module):
 
 if __name__ == '__main__':
     x = torch.randn(2,3,128,128)
-    net = UnetConv(3, 11, 4, 2)
+    net = UnetConv(3, 11, 4, 4)
     y = net(x)
     print(y.shape)

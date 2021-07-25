@@ -4,30 +4,6 @@ of our streamer dataloader.
 
 This time it is detection
 """
-from __future__ import absolute_import
-
-import urllib.request
-import tarfile
-import os
-import shutil
-
-
-def download_mnist(url='https://www.di.ens.fr/~lelarge/MNIST.tar.gz',
-                  path='/tmp/mnist/'):
-    tar_name = os.path.basename(url)
-    tar_filename = os.path.join(path, tar_name)
-    filename = os.path.join(path, 'MNIST')
-    if not os.path.exists(path):
-        os.mkdir(path)
-    if not os.path.exists(tar_filename):
-        filedata = urllib.request.urlretrieve(url, tar_filename)
-    if not os.path.exists(filename):
-        shutil.unpack_archive(tar_filename, path+'/')
-
-PATH = '/tmp/mnist'
-download_mnist(path=PATH)
-
-
 import sys
 import time
 import cv2
@@ -36,18 +12,12 @@ import numpy as np
 import uuid
 
 from moving_mnist import moving_box as toy
+from moving_mnist.download_moving_mnist import TRAIN_DATASET, VAL_DATASET
 from pytorch_stream_dataloader.stream_dataloader import StreamDataLoader
 from pytorch_stream_dataloader.stream_dataset import StreamDataset
 
 from torchvision import datasets, transforms
 from functools import partial
-
-TRAIN_DATASET = datasets.MNIST(PATH, train=True, download=False,
-                                       transform=transforms.Compose([transforms.ToTensor(),
-                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
-VAL_DATASET = datasets.MNIST(PATH, train=False, download=False,
-                                       transform=transforms.Compose([transforms.ToTensor(),
-                                                                     transforms.Normalize((0.1307,), (0.3081,))]))
 
 
 class FileMetadata(object):

@@ -1,8 +1,11 @@
 """
 Toy Problem Dataset that serves as an example
 of our streamer dataloader.
+Here it is for detection.
 
-This time it is detection
+TODO: fuse both MNIST,
+output both boxes and binary masks per object
+
 """
 import sys
 import time
@@ -47,7 +50,7 @@ class MovingMnist(toy.Animation):
         max_frames_per_video: maximum frames per video before reset
     """
     def __init__(self, idx, tbins=10, height=128, width=128, channels=3, max_stop=15,
-                 min_objects=1, max_objects=2, train=True, max_frames_per_video=100, data_caching_path="/tmp/mnist", colorized=True):
+                 min_objects=1, max_objects=2, train=True, max_frames_per_video=100, colorized=True):
         self.train = train
         self.channels = channels
         self.steps = 0
@@ -92,34 +95,49 @@ class MovingMnist(toy.Animation):
             else:
                 self.objects[i].img = np.repeat(img[y1:y2, x1:x2][...,None], self.channels, 2)
 
+            self.objects[i].gray = img.astype(np.uint8)
+
     def step(self):
         self.img[...] = 0
         boxes = np.zeros((len(self.objects), 5), dtype=np.float32)
+        h,w, = self.img.shape[:2]
+        masks = []
         for i, digit in enumerate(self.objects):
             x1, y1, x2, y2 = next(digit)
             boxes[i] = np.array([x1, y1, x2, y2, digit.class_id + self.label_offset])
             thumbnail = cv2.resize(digit.img, (x2-x1, y2-y1), cv2.INTER_LINEAR)
             self.img[y1:y2, x1:x2] = np.maximum(self.img[y1:y2, x1:x2], thumbnail)
+            mask = np.zeros((h,w), dtype=np.uint8)
+
+            gray = cv2.resize(digit.gray, (x2-x1, y2-y1), cv2.INTER_LINEAR)
+            mask[y1:y2, x1:x2] = 1*(gray > 0)
+            masks.append(mask[None])
+
         output = self.img
         self.steps += 1
-        return (output, boxes)
+        masks = np.concatenate(masks)
+        return (output, boxes, masks)
 
     def __iter__(self):
         for r in range(self.max_frames_per_video//self.tbins):
             reset = self.steps > 0
             imgs, targets = [], []
+            target_masks = []
             for t in range(self.tbins):
-                img, target = self.step()
+                img, target, masks = self.step()
                 imgs.append(img[None].copy())
 
                 target = torch.from_numpy(target)
                 targets.append(target)
 
+                target_mask = torch.from_numpy(masks)
+                target_masks.append(target_mask)
+
             imgs = np.concatenate(imgs, axis=0)
             imgs = torch.from_numpy(imgs)
 
             video_info = (self.video_info, self.steps * self.video_info.delta_t, self.tbins * self.video_info.delta_t)
-            yield imgs, targets, reset, video_info
+            yield imgs, targets, target_masks, reset, video_info
 
 
 def collate_fn(data_list):
@@ -128,14 +146,15 @@ def collate_fn(data_list):
     Args:
         data_list: batch parts
     """
-    batch, boxes, resets, video_infos = zip(*data_list)
+    batch, boxes, masks, resets, video_infos = zip(*data_list)
     batch = torch.cat([item[:, None] for item in batch], dim=1)
     batch = batch.permute(0,1,4,2,3).contiguous()
     t, n = batch.shape[:2]
     boxes = [[boxes[i][t] for i in range(n)] for t in range(t)]
+    masks = [[masks[i][t] for i in range(n)] for t in range(t)]
     resets = torch.FloatTensor(resets)[:,None,None,None]
     frame_is_labelled = torch.ones((t, n), dtype=torch.float32)
-    return {'inputs': batch, 'labels': boxes, "frame_is_labelled": frame_is_labelled,
+    return {'inputs': batch, 'labels': boxes, "masks": masks, "frame_is_labelled": frame_is_labelled,
             'mask_keep_memory': resets, "video_infos": video_infos}
 
 
